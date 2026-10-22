@@ -8,7 +8,7 @@
 <h1 align="center">YiKlot</h1>
 <h3 align="center">Slide and shift, mind gets swift!</h3>
 
-<p align="center">A clean, lightweight, and privacy-first 数字华容道 (sliding puzzle) game, crafted with Material You and modern web engineering.</p>
+<p align="center">A clean, lightweight, and privacy-first 数字华容道 (Number Klotski) game, crafted with Material You and modern web engineering.</p>
 <p align="center">Made with ❤️ by <a href="https://github.com/lingyicute">lingyicute</a>.</p>
 <br>
 <br>
@@ -29,7 +29,7 @@
 
 ## 📖 Overview
 
-数字华容道 (Sliding Number Puzzle / $N^2-1$ Puzzle) has one mathematical trap that trips up naive implementations: **exactly half of all random permutations are unsolvable**. Even worse, many browser clones only allow clicking one adjacent tile at a time and offer no assistance once a player gets stuck on a 5×5 or 6×6 board.
+数字华容道 (Number Klotski / $N^2-1$ Puzzle) has one mathematical trap that trips up naive implementations: **exactly half of all random permutations are unsolvable**. Even worse, many browser clones only allow clicking one adjacent tile at a time and offer no assistance once a player gets stuck on a 5×5 or 6×6 board.
 
 **YiKlot** guarantees every generated board is strictly solvable via exact inversion-parity verification, supports smooth **multi-tile row/column pushing** alongside touch swipes and keyboard controls, and embeds a millisecond-fast solver for instant **next-move hints** across all board sizes from **3×3 up to 6×6** — shipped as **one self-contained HTML file**.
 
