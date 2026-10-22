@@ -54,9 +54,10 @@
     --tile: oklch(.992 .004 var(--h));
     --tile-ok: color-mix(in oklch, var(--primary-container) 62%, var(--tile));
     --on-tile-ok: var(--on-primary-container);
-    --slot: oklch(.855 .022 var(--h));
+    --slot: oklch(.82 .022 var(--h));
     --on-surface: oklch(.2 .02 var(--h));
     --on-surface-variant: oklch(.42 .03 var(--h));
+    --slot-ink: color-mix(in oklch, var(--on-surface-variant) 72%, transparent);
     --outline: oklch(.55 .03 var(--h));
     --outline-variant: oklch(.8 .03 var(--h));
     --shadow: 0 1px 2px oklch(.2 .03 var(--h) / .16), 0 2px 6px oklch(.2 .03 var(--h) / .08);
@@ -85,6 +86,7 @@
     --slot: oklch(.225 .018 var(--h));
     --on-surface: oklch(.93 .01 var(--h));
     --on-surface-variant: oklch(.8 .025 var(--h));
+    --slot-ink: color-mix(in oklch, var(--on-surface-variant) 56%, transparent);
     --outline: oklch(.62 .03 var(--h));
     --outline-variant: oklch(.4 .03 var(--h));
     --shadow: 0 1px 2px #0006, 0 2px 8px #0003;
@@ -252,7 +254,7 @@
     font-size: calc(100cqw / var(--cols) * .34);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: color-mix(in oklch, var(--on-surface-variant) 34%, transparent);
+    color: var(--slot-ink);
     pointer-events: none;
     transition: background .25s;
   }
