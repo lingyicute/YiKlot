@@ -538,14 +538,14 @@
     <div class="bar-actions">
       <button class="icon-btn" id="themeBtn" aria-label="切换深色/浅色模式" title="切换深色/浅色模式"></button>
       <div class="anchor">
-        <button class="icon-btn" id="paletteBtn" aria-label="选择配色" aria-expanded="false" title="选择配色"></button>
+        <button class="icon-btn" id="paletteBtn" aria-label="选择配色" aria-haspopup="dialog" aria-controls="palettePop" aria-expanded="false" title="选择配色"></button>
         <div class="popover" id="palettePop" role="dialog" aria-label="选择配色">
           <div class="pop-title">选择配色</div>
           <div class="swatches" id="swatches"></div>
         </div>
       </div>
       <div class="anchor">
-        <button class="icon-btn" id="menuBtn" aria-label="菜单" aria-expanded="false" title="菜单"></button>
+        <button class="icon-btn" id="menuBtn" aria-label="菜单" aria-haspopup="menu" aria-controls="menuPop" aria-expanded="false" title="菜单"></button>
         <div class="popover" id="menuPop" role="menu">
           <button class="menu-item" data-act="help" role="menuitem"></button>
           <button class="menu-item" data-act="best" role="menuitem"></button>
@@ -657,6 +657,8 @@
   };
   const shuffleArr = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const fmt = s => { s = Math.floor(s); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  const MAX_SAVED_SECONDS = 24 * 3600, MAX_SAVED_STEPS = 1e6;
+  const safeInt = (v, max, fallback = null) => Number.isSafeInteger(v) && v >= 0 && v <= max ? v : fallback;
 
   /* ---------- DOM ---------- */
   const root = document.documentElement;
@@ -754,7 +756,8 @@
   document.querySelectorAll('.menu-item').forEach(b => {
     const [ic, label] = menuItems[b.dataset.act];
     b.innerHTML = ic + '<span>' + label + '</span>';
-    b.addEventListener('click', () => { closePops(); ({ help: showHelp, best: showBest, clear: confirmClear })[b.dataset.act](); });
+    // 对话框关闭后，原焦点不能落回已经隐藏的菜单项
+    b.addEventListener('click', () => { closePops(null, true); ({ help: showHelp, best: showBest, clear: confirmClear })[b.dataset.act](); });
   });
 
   /* ---------- 对话框 / Toast ---------- */
@@ -826,16 +829,19 @@
   }
 
   /* ---------- 记录 ---------- */
-  /* 读取最佳成绩并规整字段，避免被手改或旧版本残留的脏数据污染界面 */
-  const safeNum = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : d);
+  /* 读取最佳成绩并规整字段；缺少时间或步数的旧/脏记录直接丢弃，
+     避免默认成不可能被刷新掉的 0 秒、0 步成绩 */
   function loadBest() {
     try {
       const raw = JSON.parse(store.get('yk-best', '{}')) || {};
       const out = {};
       for (const d of DIFFS) {
         const r = raw[d.id];
-        if (r && typeof r === 'object') {
-          out[d.id] = { time: safeNum(r.time), steps: safeNum(r.steps), wins: safeNum(r.wins) };
+        if (!r || typeof r !== 'object') continue;
+        const time = safeInt(r.time, Number.MAX_SAFE_INTEGER);
+        const steps = safeInt(r.steps, MAX_SAVED_STEPS);
+        if (time !== null && steps !== null) {
+          out[d.id] = { time, steps, wins: safeInt(r.wins, MAX_SAVED_STEPS, 0) };
         }
       }
       return out;
@@ -1077,7 +1083,7 @@
   let size = diff.cols, grid = [], cells = [], blank = [0, 0];
   let steps = 0, history = [], hintsLeft = diff.hints;
   let elapsed = 0, started = false, over = false, hintCell = null, hintTimer = null;
-  let lastTick = performance.now();
+  let lastTick = performance.now(), timerVisible = !document.hidden;
 
   const cellAt = (r, c) => cells[r * size + c];
   const toFlat = () => grid.flat();
@@ -1105,11 +1111,12 @@
         if (!Number.isInteger(v) || v < 0 || v >= len || seen[v]) return null;
         seen[v] = 1;
       }
-      // 拒绝不可解或已通关的脏数据，并校验 hintsLeft/elapsed 合理性
+      // 拒绝不可解、已通关或字段越界的脏数据
       if (!isSolvable(raw.flat, n) || isSolvedFlat(raw.flat)) return null;
-      if (typeof raw.steps !== 'number' || raw.steps < 0 || raw.steps > 1e6) return null;
-      if (typeof raw.elapsed !== 'number' || raw.elapsed < 0 || raw.elapsed > 24 * 3600) return null;
-      if (raw.hintsLeft != null && (typeof raw.hintsLeft !== 'number' || raw.hintsLeft < 0 || raw.hintsLeft > 32)) return null;
+      if (safeInt(raw.steps, MAX_SAVED_STEPS) === null) return null;
+      if (typeof raw.elapsed !== 'number' || !Number.isFinite(raw.elapsed) || raw.elapsed < 0 || raw.elapsed > MAX_SAVED_SECONDS) return null;
+      if (raw.hintsLeft != null && safeInt(raw.hintsLeft, diff.hints) === null) return null;
+      if (raw.started != null && typeof raw.started !== 'boolean') return null;
       return raw;
     } catch (e) { return null; }
   }
@@ -1207,7 +1214,7 @@
   }
   function newGame() {
     clearTimeout(hintTimer);
-    clearTimeout(winTimer);
+    clearTimeout(winTimer); winTimer = null;
     buildBoard();
     const len = size * size;
     const minDist = size === 3 ? 8 : size === 4 ? 22 : size === 5 ? 45 : 75;
@@ -1235,7 +1242,7 @@
     steps = 0; history = []; hintCell = null;
     hintsLeft = diff.hints;
     elapsed = 0; started = false; over = false;
-    lastTick = performance.now();
+    timerVisible = !document.hidden; lastTick = performance.now();
     paintAll(); updateHud(); saveGame();
     playEntrance();
   }
@@ -1251,7 +1258,7 @@
     started = !!saved.started;
     over = false;
     history = []; hintCell = null;
-    lastTick = performance.now();
+    timerVisible = !document.hidden; lastTick = performance.now();
     paintAll(); updateHud();
     playEntrance();
   }
@@ -1281,12 +1288,13 @@
     if (hadFocus) diffBox.querySelector('.chip-btn.on').focus();
   }
 
-  /* 计时：250ms 心跳，页面隐藏时暂停累计，切回时丢弃后台停留的时间
-     后台标签页的定时器会被节流到分钟级，单次心跳增量必须封顶，否则用时会被虚增 */
+  /* 计时：250ms 心跳。timerVisible 保存可见性切换前的状态：隐藏事件触发时
+     document.hidden 已为 true，直接读取它会漏掉最后一段前台用时；回到前台时则需丢弃后台时间。
+     单次增量继续封顶，避免浏览器/系统长时间挂起后一次性虚增。 */
   const MAX_TICK_MS = 1000;
   function tickTimer() {
     const now = performance.now();
-    if (started && !over && !document.hidden) {
+    if (started && !over && timerVisible) {
       elapsed += Math.min(now - lastTick, MAX_TICK_MS) / 1000;
       timeVal.textContent = fmt(elapsed);
     }
@@ -1294,11 +1302,17 @@
   }
   setInterval(tickTimer, 250);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) tickTimer();
+    tickTimer();
+    timerVisible = !document.hidden;
     lastTick = performance.now();
     saveGame();
   });
-  window.addEventListener('pagehide', () => { tickTimer(); saveGame(); });
+  window.addEventListener('pagehide', () => {
+    tickTimer(); timerVisible = false; saveGame();
+  });
+  window.addEventListener('pageshow', () => {
+    timerVisible = !document.hidden; lastTick = performance.now();
+  });
   window.addEventListener('beforeunload', () => { tickTimer(); saveGame(); });
 
   /* ---------- 滑动与 FLIP 位移动画 ---------- */
@@ -1315,12 +1329,15 @@
     setTimeout(() => el.classList.remove('shake'), 360);
   }
 
+  // 快速连续移动时，上一轮清理定时器不能把新一轮 transition 提前清掉
+  const moveCleanupTimers = new WeakMap();
   function animateMoves(moved) {
     if (REDUCED.matches || !moved.length) return;
     // tile 占据 cell 的 90%（inset 5%），位移按 1/0.9 换算为 tile 自身百分比
     const scale = 100 / 0.9;
     const tiles = moved.map(({ from, to }) => {
       const tile = cellAt(to[0], to[1]).firstChild;
+      clearTimeout(moveCleanupTimers.get(tile));
       const dx = ((from[1] - to[1]) * scale).toFixed(4);
       const dy = ((from[0] - to[0]) * scale).toFixed(4);
       tile.style.transition = 'none';
@@ -1333,7 +1350,11 @@
     tiles.forEach(tile => {
       tile.style.transition = 'transform .17s cubic-bezier(.2, .9, .3, 1.05)';
       tile.style.transform = '';
-      setTimeout(() => { tile.style.willChange = ''; tile.style.zIndex = ''; tile.style.transition = ''; }, 190);
+      const timer = setTimeout(() => {
+        tile.style.willChange = ''; tile.style.zIndex = ''; tile.style.transition = '';
+        moveCleanupTimers.delete(tile);
+      }, 190);
+      moveCleanupTimers.set(tile, timer);
     });
   }
 
@@ -1366,12 +1387,14 @@
     updateHud();
 
     if (isSolvedFlat(toFlat())) {
-      over = true;
+      // over 置位前结清最后一次心跳，并立即保存成绩；不能让动画延时成为数据丢失窗口
       tickTimer();
+      over = true;
+      const result = recordWin();
       updateHud();
       saveGame();
       gridEl.classList.remove('winning'); void gridEl.offsetWidth; gridEl.classList.add('winning');
-      winTimer = setTimeout(win, REDUCED.matches ? 60 : 520);
+      winTimer = setTimeout(() => showWin(result), REDUCED.matches ? 60 : 520);
     } else {
       saveGame();
     }
@@ -1447,10 +1470,7 @@
     updateHud();
   }
 
-  function win() {
-    winTimer = null;
-    // 结算被重开/换难度打断时直接丢弃，避免给新局写入 0 步 0 秒的假纪录
-    if (!over) return;
+  function recordWin() {
     const best = loadBest(), prev = best[diff.id];
     const t = Math.round(elapsed);
     // 首次通关或刷新任一维度均更新对应记录
@@ -1465,11 +1485,19 @@
     const badgeMsg = !prev || bestTime
       ? '🎉 刷新了最佳成绩!'
       : (bestSteps ? '🎉 刷新了最少步数!' : `最佳成绩 ${fmt(prev.time)} · 最少 ${prev.steps} 步`);
+    // 延时展示期间难度或新局可能变化，返回不可变的本局快照
+    return { name: diff.name, size, time: t, steps, badgeMsg };
+  }
+
+  function showWin(result) {
+    winTimer = null;
+    // 重开/换难度会取消定时器；这里再校验一次，防止已入队的旧回调弹窗
+    if (!over) return;
     showDialog({
       icon: ICON.party, title: '恭喜通关!',
-      body: `<div class="win-time"><div>${diff.name} · ${size}×${size} 用时</div><div class="big">${fmt(t)}</div>
-             <div class="win-meta">共 ${steps} 步</div>
-             <div>${badgeMsg}</div></div>`,
+      body: `<div class="win-time"><div>${result.name} · ${result.size}×${result.size} 用时</div><div class="big">${fmt(result.time)}</div>
+             <div class="win-meta">共 ${result.steps} 步</div>
+             <div>${result.badgeMsg}</div></div>`,
       actions: [{ label: '关闭' }, { label: '再来一局', primary: true, onClick: newGame }]
     });
   }
@@ -1512,10 +1540,13 @@
     if (!p.moved && p.r >= 0) tapCell(p.r, p.c);
   });
   gridEl.addEventListener('pointercancel', e => {
+    if (!ptr || e.pointerId !== ptr.id) return;
     ptr = null;
     try { gridEl.releasePointerCapture(e.pointerId); } catch (_) {}
   });
-  gridEl.addEventListener('lostpointercapture', () => { ptr = null; });
+  gridEl.addEventListener('lostpointercapture', e => {
+    if (ptr && e.pointerId === ptr.id) ptr = null;
+  });
 
   undoBtn.addEventListener('click', undo);
   restartBtn.addEventListener('click', newGame);
