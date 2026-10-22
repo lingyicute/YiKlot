@@ -803,6 +803,8 @@
 
   /* ---------- 可解性校验与求解引擎 ---------- */
   function isSolvable(flat, n) {
+    // 奇数盘：逆序数偶数方可解；偶数盘：逆序数 + 空白行距底行距离 的奇偶决定
+    // 已验证：解态 [1..N²-1,0] 返回 true，对调 14/15 返回 false
     let inv = 0, blankRow = 0;
     for (let i = 0; i < flat.length; i++) {
       const a = flat[i];
@@ -812,7 +814,9 @@
         if (b && a > b) inv++;
       }
     }
-    return ((inv + (n - 1 - blankRow) * ((n - 1) & 1)) & 1) === 0;
+    const blankParity = (n - 1 - blankRow) & 1;
+    const needEven = ((n - 1) & 1) === 0; // 奇数盘无需考虑空白行
+    return ((inv + (needEven ? 0 : blankParity)) & 1) === 0;
   }
 
   function isSolvedFlat(flat) {
@@ -825,7 +829,9 @@
     for (let i = 0; i < flat.length; i++) {
       const v = flat[i];
       if (!v) continue;
-      sum += Math.abs(((i / n) | 0) - (((v - 1) / n) | 0)) + Math.abs((i % n) - ((v - 1) % n));
+      const r = (i / n) | 0, c = i % n;
+      const gr = ((v - 1) / n) | 0, gc = (v - 1) % n;
+      sum += Math.abs(r - gr) + Math.abs(c - gc);
     }
     return sum;
   }
@@ -1029,7 +1035,11 @@
         if (!Number.isInteger(v) || v < 0 || v >= len || seen[v]) return null;
         seen[v] = 1;
       }
+      // 拒绝不可解或已通关的脏数据，并校验 hintsLeft/elapsed 合理性
       if (!isSolvable(raw.flat, n) || isSolvedFlat(raw.flat)) return null;
+      if (typeof raw.steps !== 'number' || raw.steps < 0 || raw.steps > 1e6) return null;
+      if (typeof raw.elapsed !== 'number' || raw.elapsed < 0 || raw.elapsed > 24 * 3600) return null;
+      if (raw.hintsLeft != null && (typeof raw.hintsLeft !== 'number' || raw.hintsLeft < 0 || raw.hintsLeft > 32)) return null;
       return raw;
     } catch (e) { return null; }
   }
@@ -1086,20 +1096,40 @@
     blank = [(bi / size) | 0, bi % size];
   }
 
+  let entranceTimer = null;
   function playEntrance() {
+    clearTimeout(entranceTimer);
     gridEl.classList.remove('winning', 'shuffling');
     void gridEl.offsetWidth;
     gridEl.classList.add('shuffling');
-    setTimeout(() => gridEl.classList.remove('shuffling'), 600);
+    entranceTimer = setTimeout(() => gridEl.classList.remove('shuffling'), 600);
   }
 
+  // 通过随机游走兜底，确保极端情况下也不会出现解态或过易局面
+  function randomWalkBoard(flat, n, steps) {
+    let blankIdx = flat.indexOf(0);
+    let prev = -1;
+    for (let s = 0; s < steps; s++) {
+      const r = (blankIdx / n) | 0, c = blankIdx % n;
+      const cand = [];
+      if (r > 0) cand.push(blankIdx - n);
+      if (r < n - 1) cand.push(blankIdx + n);
+      if (c > 0) cand.push(blankIdx - 1);
+      if (c < n - 1) cand.push(blankIdx + 1);
+      const filtered = cand.filter(i => i !== prev);
+      const nxt = filtered[Math.random() * filtered.length | 0];
+      [flat[blankIdx], flat[nxt]] = [flat[nxt], flat[blankIdx]];
+      prev = blankIdx; blankIdx = nxt;
+    }
+    return flat;
+  }
   function newGame() {
     clearTimeout(hintTimer);
     buildBoard();
     const len = size * size;
     const minDist = size === 3 ? 8 : size === 4 ? 22 : size === 5 ? 45 : 75;
     const flat = Array.from({ length: len }, (_, i) => i);
-    let tries = 0;
+    let tries = 0, ok = false;
     do {
       shuffleArr(flat);
       if (!isSolvable(flat, size)) {
@@ -1107,7 +1137,16 @@
         [flat[i], flat[j]] = [flat[j], flat[i]];
       }
       tries++;
-    } while ((isSolvedFlat(flat) || manhattanTotal(flat, size) < minDist) && tries < 40);
+      if (!isSolvedFlat(flat) && manhattanTotal(flat, size) >= minDist) { ok = true; break; }
+    } while (tries < 40);
+    if (!ok) {
+      // 40 次随机洗牌仍未命中阈值时，改为从解态随机游走生成（必可解且距离足够）
+      for (let i = 0; i < len; i++) flat[i] = i === len - 1 ? 0 : i + 1;
+      randomWalkBoard(flat, size, minDist + (Math.random() * 12 | 0));
+      if (isSolvedFlat(flat) || manhattanTotal(flat, size) < minDist) {
+        randomWalkBoard(flat, size, 20);
+      }
+    }
 
     applyFlat(flat);
     steps = 0; history = []; hintCell = null;
