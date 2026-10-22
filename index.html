@@ -146,9 +146,11 @@
     background: var(--surface-high); color: var(--on-surface);
     border-radius: 24px; padding: 14px; box-shadow: 0 8px 28px #0004;
     opacity: 0; visibility: hidden; transform: scale(.88); transform-origin: top right;
-    transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility .18s;
+    /* visibility 用 0s + 延迟过渡：打开时立即可见（面板内的按钮要能被聚焦），
+       关闭时等淡出结束再隐藏 */
+    transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility 0s linear .22s;
   }
-  .popover.open { opacity: 1; visibility: visible; transform: none; }
+  .popover.open { opacity: 1; visibility: visible; transform: none; transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility 0s; }
   #palettePop { right: -56px; width: min(280px, calc(100vw - 32px)); padding: 18px 18px 20px; }
   #menuPop { right: 0; width: min(230px, calc(100vw - 32px)); padding: 8px; }
   .pop-title { font-size: 14px; font-weight: 600; color: var(--on-surface-variant); letter-spacing: .08em; margin-bottom: 14px; }
@@ -629,7 +631,12 @@
     { id: 'hard',   name: '困难', cols: 5, rows: 5, hints: 12 },
     { id: 'expert', name: '专家', cols: 6, rows: 6, hints: 16 }
   ];
-  const PALETTES = [['purple',295],['blue',255],['cyan',200],['green',150],['yellow',90],['orange',55],['pink',350],['red',25]];
+  const PALETTES = [
+    { id: 'purple', label: '紫', hue: 295 }, { id: 'blue', label: '蓝', hue: 255 },
+    { id: 'cyan', label: '青', hue: 200 },   { id: 'green', label: '绿', hue: 150 },
+    { id: 'yellow', label: '黄', hue: 90 },  { id: 'orange', label: '橙', hue: 55 },
+    { id: 'pink', label: '粉', hue: 350 },   { id: 'red', label: '红', hue: 25 }
+  ];
 
   /* 本地存储（无权限沙盒环境自动降级至内存存储） */
   const mem = new Map();
@@ -680,18 +687,23 @@
   $('#paletteBtn').innerHTML = ICON.palette;
   $('#menuBtn').innerHTML = ICON.menu;
   const swatchBox = $('#swatches');
-  PALETTES.forEach(([name, hue]) => {
+  PALETTES.forEach(({ id, label, hue }) => {
     const b = document.createElement('button');
-    b.className = 'swatch'; b.dataset.p = name; b.style.setProperty('--sh', hue);
-    b.setAttribute('aria-label', '配色 ' + name);
+    b.className = 'swatch'; b.dataset.p = id; b.style.setProperty('--sh', hue);
+    b.setAttribute('aria-label', '配色·' + label);
+    b.setAttribute('aria-pressed', 'false');
     b.innerHTML = ICON.check;
-    b.addEventListener('click', () => { applyPalette(name); closePops(null, false); });
+    b.addEventListener('click', () => { applyPalette(id); closePops(null, true); });
     swatchBox.append(b);
   });
   function applyPalette(p) {
-    if (!PALETTES.some(([n]) => n === p)) p = 'purple';
+    if (!PALETTES.some(o => o.id === p)) p = 'purple';
     root.dataset.palette = p; store.set('yk-palette', p);
-    swatchBox.querySelectorAll('.swatch').forEach(s => s.classList.toggle('on', s.dataset.p === p));
+    swatchBox.querySelectorAll('.swatch').forEach(s => {
+      const on = s.dataset.p === p;
+      s.classList.toggle('on', on);
+      s.setAttribute('aria-pressed', String(on));
+    });
     syncThemeColor();
   }
 
@@ -707,6 +719,7 @@
       }
     });
   }
+  const popItems = pop => [...pop.querySelectorAll('.menu-item, .swatch')];
   pops.forEach(o => {
     o.btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -714,6 +727,23 @@
       closePops(o);
       o.pop.classList.toggle('open', open);
       o.btn.setAttribute('aria-expanded', String(open));
+      // 键盘打开的菜单把焦点移进面板，鼠标点开则保持原位，避免抢走指针交互
+      if (open && root.classList.contains('kb')) {
+        const first = popItems(o.pop)[0];
+        if (first) first.focus({ preventScroll: true });
+      }
+    });
+    // 菜单语义需要方向键在条目间移动；配色面板同样受益
+    o.pop.addEventListener('keydown', e => {
+      const items = popItems(o.pop);
+      const i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      let next = -1;
+      if (e.key === 'ArrowDown') next = (i + 1) % items.length;
+      else if (e.key === 'ArrowUp') next = (i - 1 + items.length) % items.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = items.length - 1;
+      if (next >= 0) { e.preventDefault(); e.stopPropagation(); items[next].focus(); }
     });
     // Enter/Space 也可触发，复用 click
     o.pop.addEventListener('click', e => e.stopPropagation());
@@ -1229,12 +1259,15 @@
   /* 难度按钮 */
   const diffBox = $('#diffs');
   function renderDiffs() {
+    // 按钮会被整批重建，先把焦点状态记下来，重建后归还给当前难度
+    const hadFocus = diffBox.contains(document.activeElement);
     diffBox.innerHTML = '';
     DIFFS.forEach(d => {
       const b = document.createElement('button');
       b.className = 'chip-btn' + (d.id === diff.id ? ' on' : '');
       b.innerHTML = ICON.check + '<span>' + d.name + '</span>';
       b.title = `${d.cols}×${d.rows}`;
+      b.setAttribute('aria-pressed', String(d.id === diff.id));
       b.addEventListener('click', () => {
         if (d.id === diff.id) return;
         diff = d;
@@ -1245,6 +1278,7 @@
       });
       diffBox.append(b);
     });
+    if (hadFocus) diffBox.querySelector('.chip-btn.on').focus();
   }
 
   /* 计时：250ms 心跳，页面隐藏时暂停累计，切回时丢弃后台停留的时间
