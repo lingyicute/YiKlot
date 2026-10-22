@@ -9,10 +9,20 @@ Nebulove & Yomi-UI-Emoji 字体子集化与内嵌脚本
   python3 scripts/subset_font.py --check     # 只报告字形与体积，不写入
   python3 scripts/subset_font.py --all-text  # 保守模式：连同注释在内全文字符全收
 """
-import argparse, base64, io, os, re, sys, tempfile, urllib.request
+import argparse
+import base64
+import hashlib
+import io
+import os
+import re
+import sys
+import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
+
 from fontTools.ttLib import TTFont
-from fontTools.subset import Subsetter, Options
+from fontTools.subset import Options, Subsetter
 
 NEBULOVE_URL = "https://raw.githubusercontent.com/lingyicute/Nebulove/main/Nebulove.woff2"
 EMOJI_URL = "https://raw.githubusercontent.com/lingyicute/Yomi-Android/main/assets/Yomi-UI-Emoji.ttf"
@@ -21,7 +31,7 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_HTML = HERE.parent / "index.html"
 
 ASCII = {chr(c) for c in range(32, 127)}
-PUNCT = set("：，。！？；“”‘’（）【】—…·《》×＝÷＋－←↑→↓「」")
+PUNCT = set("：，。！？；“”‘’（）【】—…·《》×＝÷＋－←↑→↓「」—")
 BLOCK_RE = re.compile(r"<style>\s*(?:/\*\s*INLINE_FONTS\s*\*/\s*)?@font-face.*?</style>", re.S)
 
 
@@ -39,24 +49,56 @@ def strip_non_render_text(html: str) -> str:
 
 def is_emoji(ch: str) -> bool:
     cp = ord(ch)
-    return cp >= 0x1F000 or 0x2600 <= cp <= 0x27BF or cp in (0xFE0F, 0x200D)
+    # 覆盖常见 Emoji 区间：杂项符号、表情、补充符号及变体选择符
+    return cp >= 0x1F000 or 0x2600 <= cp <= 0x27BF or cp in (0xFE0F, 0x200D, 0xFE0E)
 
 
-def download(url: str, dest: str) -> None:
-    with urllib.request.urlopen(url, timeout=120) as r, open(dest, "wb") as f:
-        f.write(r.read())
+def download(url: str, dest: str, retries: int = 3) -> None:
+    last_err: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "YiKlot-subset/1.0"})
+            with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
+                # 流式写入避免一次性占用过大内存
+                while True:
+                    chunk = r.read(64 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            return
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            last_err = e
+            if attempt < retries:
+                print(f"下载失败（{attempt}/{retries}）：{e}，重试中…", file=sys.stderr)
+            else:
+                raise RuntimeError(f"下载失败 {url}: {last_err}") from last_err
 
 
 def subset_font(src_path: str, chars: set[str]) -> tuple[bytes, set[int], int]:
+    # 空字符集时跳过子集化，避免 fontTools 报错
+    if not chars:
+        with TTFont(src_path) as font:
+            font.recalcTimestamp = False
+            font.flavor = "woff2"
+            buf = io.BytesIO()
+            font.save(buf)
+            return buf.getvalue(), set(), 0
     with TTFont(src_path) as font:
-        sub = Subsetter(options=Options())
+        opts = Options()
+        # 保留必要表，剔除无用 DSIG 以减小体积
+        opts.desubroutinize = False
+        sub = Subsetter(options=opts)
         sub.populate(text="".join(sorted(chars)))
         sub.subset(font)
-        font.recalcTimestamp = False  # 保留原时间戳，确保重复运行字节完全一致（幂等）
+        # 清理 DSIG 并固定时间戳以保证幂等
+        if "DSIG" in font:
+            del font["DSIG"]
+        font.recalcTimestamp = False
         font.flavor = "woff2"
         buf = io.BytesIO()
         font.save(buf)
-        return buf.getvalue(), set(font.getBestCmap().keys()), font["maxp"].numGlyphs
+        cmap = font.getBestCmap() or {}
+        return buf.getvalue(), set(cmap.keys()), font["maxp"].numGlyphs
 
 
 def main() -> None:
@@ -113,10 +155,15 @@ def main() -> None:
 
     if args.check:
         print("--check：不写入页面。")
+        if missing_neb or missing_emo:
+            sys.exit(1)
         return
 
     neb_b64 = base64.b64encode(neb_data).decode("ascii")
     emo_b64 = base64.b64encode(emo_data).decode("ascii")
+    # 打印哈希便于 CI 校验是否需更新
+    print(f"Nebulove sha256: {hashlib.sha256(neb_data).hexdigest()[:12]}")
+    print(f"Emoji sha256:    {hashlib.sha256(emo_data).hexdigest()[:12]}")
     new_block = (
         "<style>\n/* INLINE_FONTS */\n"
         '@font-face{\n  font-family:"Nebulove";\n'
@@ -131,7 +178,10 @@ def main() -> None:
     if new_html == html:
         print("页面已经是目标内容，未改动。")
         return
-    args.html.write_text(new_html, encoding="utf-8")
+    # 原子写入：先写临时文件再替换
+    tmp_html = args.html.with_suffix(args.html.suffix + ".tmp")
+    tmp_html.write_text(new_html, encoding="utf-8")
+    tmp_html.replace(args.html)
     print(f"已更新 {args.html}（替换 {n} 处）：{len(html.encode())/1024:.1f} KB → {len(new_html.encode())/1024:.1f} KB")
 
 
