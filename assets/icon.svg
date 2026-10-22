@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="YiKlot">
+  <title>YiKlot</title>
+  <rect width="96" height="96" rx="22" fill="#933B9B"/>
+  <g transform="translate(18 18) scale(2.5)">
+    <rect x="2.5" y="2.5" width="8" height="8" rx="2.3" fill="#FFFFFF"/>
+    <rect x="13.5" y="2.5" width="8" height="8" rx="2.3" fill="#FFFFFF"/>
+    <rect x="2.5" y="13.5" width="8" height="8" rx="2.3" fill="#FFFFFF"/>
+    <rect x="14.2" y="14.2" width="6.6" height="6.6" rx="1.9" fill="none" stroke="#FFFFFF" stroke-width="2" opacity=".6"/>
+  </g>
+</svg>
