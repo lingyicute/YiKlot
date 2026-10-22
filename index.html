@@ -1441,7 +1441,7 @@
   /* ---------- 指针点击与手势滑动交互（支持触控与鼠标，带指针捕获） ---------- */
   let ptr = null;
   gridEl.addEventListener('pointerdown', e => {
-    if (over || e.button > 0) return;
+    if (over || e.button > 0 || e.isPrimary === false) return;
     const cell = e.target.closest('.cell');
     ptr = {
       id: e.pointerId,
