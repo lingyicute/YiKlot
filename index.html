@@ -1145,7 +1145,7 @@
     blank = [(bi / size) | 0, bi % size];
   }
 
-  let entranceTimer = null;
+  let entranceTimer = null, winTimer = null;
   function playEntrance() {
     clearTimeout(entranceTimer);
     gridEl.classList.remove('winning', 'shuffling');
@@ -1174,6 +1174,7 @@
   }
   function newGame() {
     clearTimeout(hintTimer);
+    clearTimeout(winTimer);
     buildBoard();
     const len = size * size;
     const minDist = size === 3 ? 8 : size === 4 ? 22 : size === 5 ? 45 : 75;
@@ -1243,18 +1244,23 @@
     });
   }
 
-  /* 计时：250ms 心跳，页面隐藏时暂停累计，切回时矫正 lastTick */
-  let timerId = null;
+  /* 计时：250ms 心跳，页面隐藏时暂停累计，切回时丢弃后台停留的时间
+     后台标签页的定时器会被节流到分钟级，单次心跳增量必须封顶，否则用时会被虚增 */
+  const MAX_TICK_MS = 1000;
   function tickTimer() {
     const now = performance.now();
     if (started && !over && !document.hidden) {
-      elapsed += (now - lastTick) / 1000;
+      elapsed += Math.min(now - lastTick, MAX_TICK_MS) / 1000;
       timeVal.textContent = fmt(elapsed);
     }
     lastTick = now;
   }
-  timerId = setInterval(tickTimer, 250);
-  document.addEventListener('visibilitychange', () => { tickTimer(); saveGame(); });
+  setInterval(tickTimer, 250);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) tickTimer();
+    lastTick = performance.now();
+    saveGame();
+  });
   window.addEventListener('pagehide', () => { tickTimer(); saveGame(); });
   window.addEventListener('beforeunload', () => { tickTimer(); saveGame(); });
 
@@ -1327,7 +1333,7 @@
       updateHud();
       saveGame();
       gridEl.classList.remove('winning'); void gridEl.offsetWidth; gridEl.classList.add('winning');
-      setTimeout(win, REDUCED.matches ? 60 : 520);
+      winTimer = setTimeout(win, REDUCED.matches ? 60 : 520);
     } else {
       saveGame();
     }
@@ -1404,6 +1410,9 @@
   }
 
   function win() {
+    winTimer = null;
+    // 结算被重开/换难度打断时直接丢弃，避免给新局写入 0 步 0 秒的假纪录
+    if (!over) return;
     const best = loadBest(), prev = best[diff.id];
     const t = Math.round(elapsed);
     // 首次通关或刷新任一维度均更新对应记录
