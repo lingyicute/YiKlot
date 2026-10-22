@@ -353,7 +353,7 @@
   @media (hover: none) { .kbd-line { display: none; } }
 
   /* 对话框：backdrop 在低端机上可降级为纯色以减少重绘 */
-  dialog { margin: auto; border: 0; padding: 28px 28px 22px; width: min(92vw, 420px); border-radius: 32px; background: var(--surface-high); color: var(--on-surface); box-shadow: 0 16px 48px #0006; }
+  dialog { margin: auto; border: 0; padding: 28px 28px 22px; width: min(92vw, 420px); border-radius: 32px; background: var(--surface-high); color: var(--on-surface); box-shadow: 0 16px 48px #0006; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain; }
   dialog::backdrop { background: oklch(.1 .02 var(--h) / .45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   @supports not (backdrop-filter: blur(8px)) {
     dialog::backdrop { background: oklch(.1 .02 var(--h) / .68); }
@@ -589,7 +589,7 @@
   </div>
 </main>
 
-<dialog id="dlg">
+<dialog id="dlg" aria-labelledby="dlgTitle" aria-describedby="dlgBody">
   <div class="dlg-icon" id="dlgIcon"></div>
   <h2 id="dlgTitle"></h2>
   <div class="dlg-body" id="dlgBody"></div>
@@ -779,7 +779,14 @@
       dlg.style.animation = 'none'; void dlg.offsetWidth; dlg.style.animation = '';
     }
   }
-  dlg.addEventListener('click', e => { if (e.target === dlg) closeDialog(); });
+  // 遮罩是 dialog 的伪元素，点击遮罩时 e.target 同样是 dialog，
+  // 因此还要用坐标排除落在面板内边距上的点击，避免误关闭
+  dlg.addEventListener('click', e => {
+    if (e.target !== dlg) return;
+    const r = dlg.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return;
+    closeDialog();
+  });
   let toastTimer;
   function toast(msg) {
     const t = $('#toast'); t.textContent = msg; t.classList.add('show');
