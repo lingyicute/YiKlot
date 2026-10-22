@@ -115,7 +115,9 @@
   .ico.fill { fill: currentColor; stroke: none; }
 
   /* ============ 顶栏 ============ */
-  .appbar { position: sticky; top: 0; z-index: 30; background: color-mix(in oklch, var(--surface-lowest) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); contain: layout paint; }
+  /* 注意：这里只能用 layout/style 收敛，paint 收敛会把弹出面板一并裁出命中测试区域，
+     导致配色与菜单面板看得见却点不到 */
+  .appbar { position: sticky; top: 0; z-index: 30; background: color-mix(in oklch, var(--surface-lowest) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); contain: layout style; }
   .bar-inner { position: relative; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px clamp(16px, 4vw, 32px); }
   .logo { width: 48px; height: 48px; border-radius: 16px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; flex: none; box-shadow: var(--shadow); }
   .logo svg { width: 28px; height: 28px; }
