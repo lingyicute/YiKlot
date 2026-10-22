@@ -845,10 +845,11 @@
     if (valB < 0 && startA === goalA) return -1;
     if (valB >= 0 && startA === goalA && startB === goalB) return -1;
 
+    // 状态空间 = 空白×目标A(×目标B)；使用更宽的 Int32 存 firstMove 以兼容 6×6 双目标 46k 状态
     const multB = valB < 0 ? 1 : total;
     const maxStates = total * total * multB;
     const seen = new Uint8Array(maxStates);
-    const firstMove = new Int16Array(maxStates).fill(-1);
+    const firstMove = new Int32Array(maxStates).fill(-1);
     const q = new Int32Array(maxStates);
     const encode = (b, a, bb) => (b * total + a) * multB + bb;
 
@@ -942,9 +943,10 @@
       const b = blank;
       for (const nb of NBRS_3[b]) {
         if (nb === prevBlank) continue;
-        state[b] = state[nb]; state[nb] = 8; blank = nb;
+        const movedVal = state[nb];
+        state[b] = movedVal; state[nb] = 8; blank = nb;
         const t = dfs(g + 1, bound, b, g === 0 ? nb : firstStep);
-        state[nb] = state[b]; state[b] = 8; blank = b;
+        state[nb] = movedVal; state[b] = 8; blank = b;
         if (t === -1) return -1;
         if (t < min) min = t;
       }
@@ -953,9 +955,11 @@
 
     let bound = heuristic();
     if (bound === 0) return -1;
+    // 8-puzzle 最优解上限 31，设 42 为安全冗余；超过则视为异常
     while (bound < 42) {
       const t = dfs(0, bound, -1, -1);
       if (t === -1) return mapIdx[ansFirst];
+      if (t === 1e9) break;
       bound = t;
     }
     return -1;
@@ -963,6 +967,7 @@
 
   function findNextMove(flat, n) {
     if (isSolvedFlat(flat)) return -1;
+    // 阶段化归约：逐行/逐列锁定已归位前缀，退化到 3×3 时用 IDA* 收尾
     const locked = new Uint8Array(n * n);
     let rTop = 0, cLeft = 0;
     while (n - rTop > 3 || n - cLeft > 3) {
