@@ -675,7 +675,7 @@
     b.className = 'swatch'; b.dataset.p = name; b.style.setProperty('--sh', hue);
     b.setAttribute('aria-label', '配色 ' + name);
     b.innerHTML = ICON.check;
-    b.addEventListener('click', () => applyPalette(name));
+    b.addEventListener('click', () => { applyPalette(name); closePops(null, false); });
     swatchBox.append(b);
   });
   function applyPalette(p) {
@@ -697,14 +697,22 @@
       }
     });
   }
-  pops.forEach(o => o.btn.addEventListener('click', e => {
-    e.stopPropagation();
-    const open = !o.pop.classList.contains('open');
-    closePops(o);
-    o.pop.classList.toggle('open', open);
-    o.btn.setAttribute('aria-expanded', open);
-  }));
-  document.addEventListener('click', e => { if (!e.target.closest('.popover')) closePops(); });
+  pops.forEach(o => {
+    o.btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = !o.pop.classList.contains('open');
+      closePops(o);
+      o.pop.classList.toggle('open', open);
+      o.btn.setAttribute('aria-expanded', String(open));
+    });
+    // Enter/Space 也可触发，复用 click
+    o.pop.addEventListener('click', e => e.stopPropagation());
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.popover') && !e.target.closest('.icon-btn')) closePops(); });
+  // 点击遮罩或按 Esc 关闭
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && anyPopOpen()) { e.stopPropagation(); closePops(null, true); }
+  });
 
   const menuItems = { help: [ICON.help, '玩法说明'], best: [ICON.trophy, '最佳成绩'], clear: [ICON.trash, '清除记录'] };
   document.querySelectorAll('.menu-item').forEach(b => {
@@ -1383,7 +1391,7 @@
     });
   }
 
-  /* ---------- 指针点击与手势滑动交互 ---------- */
+  /* ---------- 指针点击与手势滑动交互（支持触控与鼠标，带指针捕获） ---------- */
   let ptr = null;
   gridEl.addEventListener('pointerdown', e => {
     if (over || e.button > 0) return;
@@ -1396,6 +1404,7 @@
       c: cell ? +cell.dataset.c : -1,
       moved: false
     };
+    try { gridEl.setPointerCapture(e.pointerId); } catch (_) {}
   });
   gridEl.addEventListener('pointermove', e => {
     if (!ptr || e.pointerId !== ptr.id || ptr.moved || over) return;
@@ -1405,6 +1414,7 @@
     ptr.moved = true;
     const dr = Math.abs(dx) >= Math.abs(dy) ? 0 : (dy > 0 ? 1 : -1);
     const dc = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 1 : -1) : 0;
+    e.preventDefault();
     if (ptr.r >= 0 && grid[ptr.r][ptr.c] !== 0 &&
         Math.sign(blank[0] - ptr.r) === dr && Math.sign(blank[1] - ptr.c) === dc) {
       slideFrom(ptr.r, ptr.c, true);
@@ -1415,9 +1425,14 @@
   gridEl.addEventListener('pointerup', e => {
     if (!ptr || e.pointerId !== ptr.id) return;
     const p = ptr; ptr = null;
+    try { gridEl.releasePointerCapture(e.pointerId); } catch (_) {}
     if (!p.moved && p.r >= 0) tapCell(p.r, p.c);
   });
-  gridEl.addEventListener('pointercancel', () => { ptr = null; });
+  gridEl.addEventListener('pointercancel', e => {
+    ptr = null;
+    try { gridEl.releasePointerCapture(e.pointerId); } catch (_) {}
+  });
+  gridEl.addEventListener('lostpointercapture', () => { ptr = null; });
 
   undoBtn.addEventListener('click', undo);
   restartBtn.addEventListener('click', newGame);
@@ -1429,21 +1444,21 @@
   document.addEventListener('pointerdown', () => root.classList.remove('kb'), true);
   document.addEventListener('keydown', e => {
     if (e.key === 'Tab') root.classList.add('kb');
+    // 对话框与弹窗优先级最高，避免底层快捷键误触
+    if (e.key === 'Escape' && anyPopOpen()) { e.preventDefault(); closePops(null, true); return; }
     if (dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if (anyPopOpen()) {
-      if (k === 'Escape') { e.preventDefault(); closePops(null, true); }
-      return;
-    }
+    if (anyPopOpen()) return;
     const dirs = { ArrowUp: [-1, 0], w: [-1, 0], ArrowDown: [1, 0], s: [1, 0], ArrowLeft: [0, -1], a: [0, -1], ArrowRight: [0, 1], d: [0, 1] };
     if (dirs[k]) { e.preventDefault(); slideDir(...dirs[k]); return; }
-    if (k === ' ' || k === 'Enter') {
+    if (k === ' ' || k === 'Enter' || k === 'spacebar') {
       if (e.target.closest && e.target.closest('button, a')) return;
-      if (hintCell) { e.preventDefault(); slideFrom(hintCell[0], hintCell[1], true); }
-    } else if (k === 'h') showHint();
-    else if (k === 'z') undo();
-    else if (k === 'x') toggleMark();
-    else if (k === 'r') newGame();
+      e.preventDefault();
+      if (hintCell) slideFrom(hintCell[0], hintCell[1], true);
+    } else if (k === 'h') { e.preventDefault(); showHint(); }
+    else if (k === 'z' || (k === 'y' && e.shiftKey)) { e.preventDefault(); undo(); }
+    else if (k === 'x') { e.preventDefault(); toggleMark(); }
+    else if (k === 'r') { e.preventDefault(); newGame(); }
   });
 
   /* ---------- 启动 ---------- */
