@@ -1112,7 +1112,8 @@
     if (hudCache.steps !== steps) { stepVal.textContent = steps; hudCache.steps = steps; }
     subtitle.textContent = `${diff.name} · ${size}×${size}`;
     undoBtn.disabled = !history.length || over;
-    hintBtn.disabled = hintsLeft <= 0 || over;
+    // 提示次数用尽时，已经高亮出来的那一步仍需可点（再点即执行）
+    hintBtn.disabled = (hintsLeft <= 0 && !hintCell) || over;
     markBtn.disabled = over;
     gridEl.classList.toggle('mark', showMark);
     markBtn.classList.toggle('active', showMark);
@@ -1269,6 +1270,7 @@
     if (!hintCell) return;
     const h = hintCell; hintCell = null; clearTimeout(hintTimer);
     paint(h[0], h[1]);
+    updateHud();
   }
 
   function shakeCell(r, c) {
