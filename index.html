@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f9f7fb">
+<meta name="description" content="YiKlot 数字华容道：支持多格连推、提示与撤销的离线单文件解谜游戏，含 3×3 至 6×6 四档难度。">
 <title>YiKlot Web · 数字华容道</title>
 <script>
   // 先于渲染应用主题，避免闪烁
@@ -92,7 +93,7 @@
 
   /* ============ 基础 ============ */
   *, *::before, *::after { box-sizing: border-box; margin: 0; }
-  html { -webkit-tap-highlight-color: transparent; }
+  html { -webkit-tap-highlight-color: transparent; scrollbar-gutter: stable; }
   body {
     min-height: 100dvh;
     font-family: "Nebulove", "Yomi-UI-Emoji", "Google Sans", "Roboto", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -104,15 +105,17 @@
     transition: background-color .3s, color .3s;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    text-rendering: optimizeLegibility;
   }
   button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; outline: none; }
+  button:focus-visible { outline: 2.5px solid var(--primary); outline-offset: 2px; }
   html.kb button:focus-visible { outline: 2.5px solid var(--primary); outline-offset: 2px; }
   svg { display: block; }
   .ico { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .ico.fill { fill: currentColor; stroke: none; }
 
   /* ============ 顶栏 ============ */
-  .appbar { position: sticky; top: 0; z-index: 30; background: color-mix(in oklch, var(--surface-lowest) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .appbar { position: sticky; top: 0; z-index: 30; background: color-mix(in oklch, var(--surface-lowest) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); contain: layout paint; }
   .bar-inner { position: relative; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px clamp(16px, 4vw, 32px); }
   .logo { width: 48px; height: 48px; border-radius: 16px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; flex: none; box-shadow: var(--shadow); }
   .logo svg { width: 28px; height: 28px; }
@@ -347,9 +350,12 @@
   kbd { display: inline-block; min-width: 1.85em; padding: 0 6px; margin: 0 1px; border: 1px solid var(--outline); border-radius: 8px; font: inherit; font-size: .84em; line-height: 1.7; text-align: center; color: var(--on-surface-variant); }
   @media (hover: none) { .kbd-line { display: none; } }
 
-  /* ============ 对话框 ============ */
+  /* 对话框：backdrop 在低端机上可降级为纯色以减少重绘 */
   dialog { margin: auto; border: 0; padding: 28px 28px 22px; width: min(92vw, 420px); border-radius: 32px; background: var(--surface-high); color: var(--on-surface); box-shadow: 0 16px 48px #0006; }
   dialog::backdrop { background: oklch(.1 .02 var(--h) / .45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  @supports not (backdrop-filter: blur(8px)) {
+    dialog::backdrop { background: oklch(.1 .02 var(--h) / .68); }
+  }
   dialog[open] { animation: dlgIn .28s cubic-bezier(.2,.9,.3,1.15); }
   dialog[open]::backdrop { animation: fadeIn .25s; }
   dialog[open].closing { animation: dlgOut .22s cubic-bezier(.4,0,1,1) forwards; pointer-events: none; }
@@ -1090,11 +1096,16 @@
     boardEl.style.setProperty('--cols', size);
     boardEl.style.setProperty('--rows', size);
     gridEl.innerHTML = '';
+    gridEl.setAttribute('aria-rowcount', size);
+    gridEl.setAttribute('aria-colcount', size);
     cells = [];
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
       const b = document.createElement('button');
       b.className = 'cell'; b.type = 'button'; b.tabIndex = -1;
       b.dataset.r = r; b.dataset.c = c;
+      b.setAttribute('role', 'gridcell');
+      b.setAttribute('aria-rowindex', r + 1);
+      b.setAttribute('aria-colindex', c + 1);
       const goal = r === size - 1 && c === size - 1 ? '' : String(r * size + c + 1);
       b.dataset.goal = goal;
       b.style.setProperty('--d', r + c);
