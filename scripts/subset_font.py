@@ -19,6 +19,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+from typing import Optional
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
@@ -31,7 +32,7 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_HTML = HERE.parent / "index.html"
 
 ASCII = {chr(c) for c in range(32, 127)}
-PUNCT = set("：，。！？；“”‘’（）【】—…·《》×＝÷＋－←↑→↓「」—")
+PUNCT = set("：，。！？；“”‘’（）【】—…·《》×＝÷＋－←↑→↓「」")
 BLOCK_RE = re.compile(r"<style>\s*(?:/\*\s*INLINE_FONTS\s*\*/\s*)?@font-face.*?</style>", re.S)
 
 
@@ -54,7 +55,7 @@ def is_emoji(ch: str) -> bool:
 
 
 def download(url: str, dest: str, retries: int = 3) -> None:
-    last_err: Exception | None = None
+    last_err: Optional[Exception] = None
     for attempt in range(1, retries + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "YiKlot-subset/1.0"})
