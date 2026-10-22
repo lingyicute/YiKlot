@@ -581,7 +581,7 @@
 
     <div class="board-col">
       <div class="board" id="board">
-        <div class="grid" id="grid" role="grid" aria-label="数字华容道棋盘"></div>
+        <div class="grid" id="grid" role="group" aria-label="数字华容道棋盘"></div>
       </div>
     </div>
   </div>
@@ -1083,7 +1083,7 @@
     el.classList.toggle('ok', v !== 0 && v === r * size + c + 1);
     el.classList.toggle('hint', !!hintCell && hintCell[0] === r && hintCell[1] === c);
     if (el.firstChild.textContent !== String(v > 0 ? v : '')) el.firstChild.textContent = v > 0 ? v : '';
-    const label = v > 0 ? '数字 ' + v : '空白格';
+    const label = `第 ${r + 1} 行第 ${c + 1} 列，` + (v > 0 ? '数字 ' + v : '空白格');
     if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
   }
   function paintAll() {
@@ -1117,16 +1117,11 @@
     boardEl.style.setProperty('--cols', size);
     boardEl.style.setProperty('--rows', size);
     gridEl.innerHTML = '';
-    gridEl.setAttribute('aria-rowcount', size);
-    gridEl.setAttribute('aria-colcount', size);
     cells = [];
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
       const b = document.createElement('button');
       b.className = 'cell'; b.type = 'button'; b.tabIndex = -1;
       b.dataset.r = r; b.dataset.c = c;
-      b.setAttribute('role', 'gridcell');
-      b.setAttribute('aria-rowindex', r + 1);
-      b.setAttribute('aria-colindex', c + 1);
       const goal = r === size - 1 && c === size - 1 ? '' : String(r * size + c + 1);
       b.dataset.goal = goal;
       b.style.setProperty('--d', r + c);
