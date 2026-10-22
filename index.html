@@ -715,10 +715,6 @@
     o.pop.addEventListener('click', e => e.stopPropagation());
   });
   document.addEventListener('click', e => { if (!e.target.closest('.popover') && !e.target.closest('.icon-btn')) closePops(); });
-  // 点击遮罩或按 Esc 关闭
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && anyPopOpen()) { e.stopPropagation(); closePops(null, true); }
-  });
 
   const menuItems = { help: [ICON.help, '玩法说明'], best: [ICON.trophy, '最佳成绩'], clear: [ICON.trash, '清除记录'] };
   document.querySelectorAll('.menu-item').forEach(b => {
@@ -789,7 +785,21 @@
   }
 
   /* ---------- 记录 ---------- */
-  const loadBest = () => { try { return JSON.parse(store.get('yk-best', '{}')) || {}; } catch (e) { return {}; } };
+  /* 读取最佳成绩并规整字段，避免被手改或旧版本残留的脏数据污染界面 */
+  const safeNum = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : d);
+  function loadBest() {
+    try {
+      const raw = JSON.parse(store.get('yk-best', '{}')) || {};
+      const out = {};
+      for (const d of DIFFS) {
+        const r = raw[d.id];
+        if (r && typeof r === 'object') {
+          out[d.id] = { time: safeNum(r.time), steps: safeNum(r.steps), wins: safeNum(r.wins) };
+        }
+      }
+      return out;
+    } catch (e) { return {}; }
+  }
   function showHelp() {
     showDialog({
       icon: ICON.info, title: '玩法说明',
@@ -1072,23 +1082,34 @@
     el.classList.toggle('movable', isMovable);
     el.classList.toggle('ok', v !== 0 && v === r * size + c + 1);
     el.classList.toggle('hint', !!hintCell && hintCell[0] === r && hintCell[1] === c);
-    el.firstChild.textContent = v > 0 ? v : '';
-    el.setAttribute('aria-label', v > 0 ? '数字 ' + v : '空白格');
+    if (el.firstChild.textContent !== String(v > 0 ? v : '')) el.firstChild.textContent = v > 0 ? v : '';
+    const label = v > 0 ? '数字 ' + v : '空白格';
+    if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
   }
   function paintAll() {
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) paint(r, c);
   }
+  // 按钮结构只构建一次，之后仅更新 chip 文本，避免每步重建 DOM 导致闪烁与无谓重排
+  function buildTools() {
+    hintBtn.innerHTML = ICON.bulb + '<span>提示</span><span class="chip"></span>';
+    markBtn.innerHTML = ICON.target + '<span>标位</span><span class="chip"></span>';
+  }
+  const hintChip = () => hintBtn.querySelector('.chip');
+  const markChip = () => markBtn.querySelector('.chip');
+  const hudCache = { time: '', steps: -1, hint: '', mark: '' };
   function updateHud() {
-    timeVal.textContent = fmt(elapsed);
-    stepVal.textContent = steps;
+    const tt = fmt(elapsed);
+    if (tt !== hudCache.time) { timeVal.textContent = tt; hudCache.time = tt; }
+    if (hudCache.steps !== steps) { stepVal.textContent = steps; hudCache.steps = steps; }
     subtitle.textContent = `${diff.name} · ${size}×${size}`;
     undoBtn.disabled = !history.length || over;
     hintBtn.disabled = hintsLeft <= 0 || over;
     markBtn.disabled = over;
     gridEl.classList.toggle('mark', showMark);
     markBtn.classList.toggle('active', showMark);
-    hintBtn.innerHTML = ICON.bulb + '<span>提示</span><span class="chip">' + hintsLeft + '</span>';
-    markBtn.innerHTML = ICON.target + '<span>标位</span><span class="chip">' + (showMark ? '开' : '关') + '</span>';
+    const ht = String(hintsLeft), mt = showMark ? '开' : '关';
+    if (hudCache.hint !== ht) { const c = hintChip(); if (c) c.textContent = ht; hudCache.hint = ht; }
+    if (hudCache.mark !== mt) { const c = markChip(); if (c) c.textContent = mt; hudCache.mark = mt; }
   }
 
   function buildBoard() {
@@ -1451,6 +1472,7 @@
   markBtn.addEventListener('click', toggleMark);
   undoBtn.innerHTML = ICON.undo;
   restartBtn.innerHTML = ICON.restart;
+  buildTools();
 
   document.addEventListener('pointerdown', () => root.classList.remove('kb'), true);
   document.addEventListener('keydown', e => {
