@@ -1199,7 +1199,8 @@
     });
   }
 
-  /* 计时 */
+  /* 计时：250ms 心跳，页面隐藏时暂停累计，切回时矫正 lastTick */
+  let timerId = null;
   function tickTimer() {
     const now = performance.now();
     if (started && !over && !document.hidden) {
@@ -1208,8 +1209,9 @@
     }
     lastTick = now;
   }
-  setInterval(tickTimer, 250);
+  timerId = setInterval(tickTimer, 250);
   document.addEventListener('visibilitychange', () => { tickTimer(); saveGame(); });
+  window.addEventListener('pagehide', () => { tickTimer(); saveGame(); });
   window.addEventListener('beforeunload', () => { tickTimer(); saveGame(); });
 
   /* ---------- 滑动与 FLIP 位移动画 ---------- */
@@ -1227,11 +1229,14 @@
 
   function animateMoves(moved) {
     if (REDUCED.matches || !moved.length) return;
+    // tile 占据 cell 的 90%（inset 5%），位移按 1/0.9 换算为 tile 自身百分比
+    const scale = 100 / 0.9;
     const tiles = moved.map(({ from, to }) => {
       const tile = cellAt(to[0], to[1]).firstChild;
-      const dx = ((from[1] - to[1]) * 100 / 0.9).toFixed(4);
-      const dy = ((from[0] - to[0]) * 100 / 0.9).toFixed(4);
+      const dx = ((from[1] - to[1]) * scale).toFixed(4);
+      const dy = ((from[0] - to[0]) * scale).toFixed(4);
       tile.style.transition = 'none';
+      tile.style.willChange = 'transform';
       tile.style.zIndex = '4';
       tile.style.transform = `translate(${dx}%, ${dy}%)`;
       return tile;
@@ -1240,7 +1245,7 @@
     tiles.forEach(tile => {
       tile.style.transition = 'transform .17s cubic-bezier(.2, .9, .3, 1.05)';
       tile.style.transform = '';
-      setTimeout(() => { tile.style.zIndex = ''; tile.style.transition = ''; }, 190);
+      setTimeout(() => { tile.style.willChange = ''; tile.style.zIndex = ''; tile.style.transition = ''; }, 190);
     });
   }
 
@@ -1333,8 +1338,10 @@
       return;
     }
     if (hintsLeft <= 0) { toast('提示次数已用完'); return; }
-    const mv = findNextMove(toFlat(), size);
-    if (mv < 0) return;
+    const flat = toFlat();
+    if (isSolvedFlat(flat)) return;
+    const mv = findNextMove(flat, size);
+    if (mv < 0) { toast('暂无可提示的下一步'); return; }
     hintsLeft--;
     hintCell = [(mv / size) | 0, mv % size];
     if (!started) { started = true; lastTick = performance.now(); }
@@ -1355,6 +1362,7 @@
   function win() {
     const best = loadBest(), prev = best[diff.id];
     const t = Math.round(elapsed);
+    // 首次通关或刷新任一维度均更新对应记录
     const bestTime = !prev || t < prev.time;
     const bestSteps = !prev || steps < prev.steps;
     best[diff.id] = {
