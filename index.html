@@ -1144,12 +1144,13 @@
   }
   const hintChip = () => hintBtn.querySelector('.chip');
   const markChip = () => markBtn.querySelector('.chip');
-  const hudCache = { time: '', steps: -1, hint: '', mark: '' };
+  const hudCache = { time: '', steps: -1, sub: '', hint: '', mark: '' };
   function updateHud() {
     const tt = fmt(elapsed);
     if (tt !== hudCache.time) { timeVal.textContent = tt; hudCache.time = tt; }
     if (hudCache.steps !== steps) { stepVal.textContent = steps; hudCache.steps = steps; }
-    subtitle.textContent = `${diff.name} · ${size}×${size}`;
+    const st = `${diff.name} · ${size}×${size}`;
+    if (st !== hudCache.sub) { subtitle.textContent = st; hudCache.sub = st; }
     undoBtn.disabled = !history.length || over;
     // 提示次数用尽时，已经高亮出来的那一步仍需可点（再点即执行）
     hintBtn.disabled = (hintsLeft <= 0 && !hintCell) || over;
