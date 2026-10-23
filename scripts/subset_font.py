@@ -76,14 +76,9 @@ def download(url: str, dest: str, retries: int = 3) -> None:
 
 
 def subset_font(src_path: str, chars: set[str]) -> tuple[bytes, set[int], int]:
-    # 空字符集时跳过子集化，避免 fontTools 报错
-    if not chars:
-        with TTFont(src_path) as font:
-            font.recalcTimestamp = False
-            font.flavor = "woff2"
-            buf = io.BytesIO()
-            font.save(buf)
-            return buf.getvalue(), set(), 0
+    # 空字符集同样直接走子集化：fontTools 会输出仅剩骨架表的最小字体，
+    # 不能跳过子集化整份回写——否则页面一旦去掉全部 Emoji，
+    # 会把上 MB 的原字体原样内嵌进单文件页面
     with TTFont(src_path) as font:
         opts = Options()
         # 保留必要表，剔除无用 DSIG 以减小体积
