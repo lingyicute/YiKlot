@@ -749,6 +749,13 @@
     });
     // Enter/Space 也可触发，复用 click
     o.pop.addEventListener('click', e => e.stopPropagation());
+    // Tab 把焦点移出锚点后收起面板，避免键盘导航后面板悬留遮挡内容；
+    // relatedTarget 为空（鼠标点非聚焦区）时不处理，交由全局 click 关闭
+    const anchor = o.btn.parentElement;
+    anchor.addEventListener('focusout', e => {
+      const to = e.relatedTarget;
+      if (to && !anchor.contains(to) && o.pop.classList.contains('open')) closePops();
+    });
   });
   document.addEventListener('click', e => { if (!e.target.closest('.popover') && !e.target.closest('.icon-btn')) closePops(); });
 
