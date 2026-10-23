@@ -1390,6 +1390,8 @@
       // over 置位前结清最后一次心跳，并立即保存成绩；不能让动画延时成为数据丢失窗口
       tickTimer();
       over = true;
+      // 终局重绘一次：清掉 .movable/.hint 残留，避免已完成的棋盘仍带指针光标与悬停/按压反馈
+      paintAll();
       const result = recordWin();
       updateHud();
       saveGame();
