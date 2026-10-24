@@ -139,7 +139,8 @@ def main() -> None:
         emo_data, emo_cov, emo_glyphs = subset_font(emo_src, emoji_chars)
 
     missing_neb = sorted(c for c in neb_chars if ord(c) not in neb_cov)
-    emoji_base = {c for c in emoji_chars if ord(c) not in (0xFE0F, 0x200D)}
+    # 变体选择符与 ZWJ 不要求独立 cmap 映射，避免 --check 误报缺字
+    emoji_base = {c for c in emoji_chars if ord(c) not in (0xFE0F, 0xFE0E, 0x200D)}
     missing_emo = sorted(c for c in emoji_base if ord(c) not in emo_cov)
 
     print(f"Nebulove 子集：{len(neb_cov)} 字符 / {neb_glyphs} 字形，{len(neb_data)/1024:.2f} KB woff2")

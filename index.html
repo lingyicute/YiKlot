@@ -988,23 +988,39 @@
         if (v === 8) continue;
         h += Math.abs(((i / 3) | 0) - ((v / 3) | 0)) + Math.abs((i % 3) - (v % 3));
       }
+      // 每行/列只累计块不重叠的线性冲突；同一块参与多个冲突时，移出并移回
+      // 一次即可同时化解，逐对累加会高估真实距离，使 IDA* 剪掉最优路径
       for (let r = 0; r < 3; r++) {
+        let used = 0;
         for (let c1 = 0; c1 < 3; c1++) {
+          if (used & (1 << c1)) continue;
           const v1 = state[r * 3 + c1];
           if (v1 === 8 || ((v1 / 3) | 0) !== r) continue;
           for (let c2 = c1 + 1; c2 < 3; c2++) {
+            if (used & (1 << c2)) continue;
             const v2 = state[r * 3 + c2];
-            if (v2 !== 8 && ((v2 / 3) | 0) === r && v1 > v2) h += 2;
+            if (v2 !== 8 && ((v2 / 3) | 0) === r && v1 > v2) {
+              h += 2;
+              used |= (1 << c1) | (1 << c2);
+              break;
+            }
           }
         }
       }
       for (let c = 0; c < 3; c++) {
+        let used = 0;
         for (let r1 = 0; r1 < 3; r1++) {
+          if (used & (1 << r1)) continue;
           const v1 = state[r1 * 3 + c];
           if (v1 === 8 || (v1 % 3) !== c) continue;
           for (let r2 = r1 + 1; r2 < 3; r2++) {
+            if (used & (1 << r2)) continue;
             const v2 = state[r2 * 3 + c];
-            if (v2 !== 8 && (v2 % 3) === c && v1 > v2) h += 2;
+            if (v2 !== 8 && (v2 % 3) === c && v1 > v2) {
+              h += 2;
+              used |= (1 << r1) | (1 << r2);
+              break;
+            }
           }
         }
       }
@@ -1202,24 +1218,6 @@
     entranceTimer = setTimeout(() => gridEl.classList.remove('shuffling'), 600);
   }
 
-  // 通过随机游走兜底，确保极端情况下也不会出现解态或过易局面
-  function randomWalkBoard(flat, n, steps) {
-    let blankIdx = flat.indexOf(0);
-    let prev = -1;
-    for (let s = 0; s < steps; s++) {
-      const r = (blankIdx / n) | 0, c = blankIdx % n;
-      const cand = [];
-      if (r > 0) cand.push(blankIdx - n);
-      if (r < n - 1) cand.push(blankIdx + n);
-      if (c > 0) cand.push(blankIdx - 1);
-      if (c < n - 1) cand.push(blankIdx + 1);
-      const filtered = cand.filter(i => i !== prev);
-      const nxt = filtered[Math.random() * filtered.length | 0];
-      [flat[blankIdx], flat[nxt]] = [flat[nxt], flat[blankIdx]];
-      prev = blankIdx; blankIdx = nxt;
-    }
-    return flat;
-  }
   function newGame() {
     clearTimeout(hintTimer);
     clearTimeout(winTimer); winTimer = null;
@@ -1238,12 +1236,11 @@
       if (!isSolvedFlat(flat) && manhattanTotal(flat, size) >= minDist) { ok = true; break; }
     } while (tries < 40);
     if (!ok) {
-      // 40 次随机洗牌仍未命中阈值时，改为从解态随机游走生成（必可解且距离足够）
-      for (let i = 0; i < len; i++) flat[i] = i === len - 1 ? 0 : i + 1;
-      randomWalkBoard(flat, size, minDist + (Math.random() * 12 | 0));
-      if (isSolvedFlat(flat) || manhattanTotal(flat, size) < minDist) {
-        randomWalkBoard(flat, size, 20);
-      }
+      // 随机游走的步数不等于曼哈顿距离，兜底后仍可能过易。四档尺寸的逆序布局
+      // 均确定高于 minDist；若奇偶性不符，交换两个非空格即可保证可解。
+      for (let i = 0; i < len - 1; i++) flat[i] = len - 1 - i;
+      flat[len - 1] = 0;
+      if (!isSolvable(flat, size)) [flat[0], flat[1]] = [flat[1], flat[0]];
     }
 
     applyFlat(flat);
@@ -1304,7 +1301,9 @@
     const now = performance.now();
     if (started && !over && timerVisible) {
       elapsed += Math.min(now - lastTick, MAX_TICK_MS) / 1000;
-      timeVal.textContent = fmt(elapsed);
+      const tt = fmt(elapsed);
+      // 与 updateHud 同步缓存，避免重开后残留上一局时间；同秒心跳不重复写 DOM
+      if (tt !== hudCache.time) { timeVal.textContent = tt; hudCache.time = tt; }
     }
     lastTick = now;
   }
