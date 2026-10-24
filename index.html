@@ -638,12 +638,17 @@
     { id: 'pink', label: '粉', hue: 350 },   { id: 'red', label: '红', hue: 25 }
   ];
 
-  /* 本地存储（无权限沙盒环境自动降级至内存存储） */
+  /* 本地存储（无权限沙盒环境自动降级至内存存储）。
+     内存值优先，null 作为删除墓碑：存储可读但写入/删除失败时，也不能回读旧值。 */
   const mem = new Map();
   const store = {
     get(k, d) {
+      if (mem.has(k)) {
+        const v = mem.get(k);
+        return v === null ? d : v;
+      }
       try { const v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
-      return mem.has(k) ? mem.get(k) : d;
+      return d;
     },
     set(k, v) {
       const s = String(v);
@@ -651,7 +656,7 @@
       try { localStorage.setItem(k, s); } catch (e) {}
     },
     del(k) {
-      mem.delete(k);
+      mem.set(k, null);
       try { localStorage.removeItem(k); } catch (e) {}
     }
   };
@@ -798,9 +803,9 @@
     dlgTimer = setTimeout(done, ms + 80);
   }
   dlg.addEventListener('cancel', e => {
-    if (dlg.classList.contains('closing')) return;
+    // 关闭动画期间也要阻止原生关闭，避免绕过统一的清理与回调流程
     e.preventDefault();
-    closeDialog();
+    if (!dlg.classList.contains('closing')) closeDialog();
   });
 
   function showDialog({ icon, title, body, actions }) {
@@ -1182,7 +1187,11 @@
     markBtn.classList.toggle('active', showMark);
     const ht = String(hintsLeft), mt = showMark ? '开' : '关';
     if (hudCache.hint !== ht) { const c = hintChip(); if (c) c.textContent = ht; hudCache.hint = ht; }
-    if (hudCache.mark !== mt) { const c = markChip(); if (c) c.textContent = mt; hudCache.mark = mt; }
+    if (hudCache.mark !== mt) {
+      const c = markChip(); if (c) c.textContent = mt;
+      markBtn.setAttribute('aria-pressed', String(showMark));
+      hudCache.mark = mt;
+    }
   }
 
   function buildBoard() {
@@ -1481,7 +1490,8 @@
 
   function recordWin() {
     const best = loadBest(), prev = best[diff.id];
-    const t = Math.round(elapsed);
+    // fmt 按整秒向下取整，成绩与通关弹窗沿用同一口径，避免和 HUD 相差一秒
+    const t = Math.floor(elapsed);
     // 首次通关或刷新任一维度均更新对应记录
     const bestTime = !prev || t < prev.time;
     const bestSteps = !prev || steps < prev.steps;

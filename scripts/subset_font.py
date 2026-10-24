@@ -50,8 +50,8 @@ def strip_non_render_text(html: str) -> str:
 
 def is_emoji(ch: str) -> bool:
     cp = ord(ch)
-    # 覆盖常见 Emoji 区间：杂项符号、表情、补充符号及变体选择符
-    return cp >= 0x1F000 or 0x2600 <= cp <= 0x27BF or cp in (0xFE0F, 0x200D, 0xFE0E)
+    # 限定常见 Emoji 区间，避免把 CJK 扩展汉字等所有增补字符误分给 Emoji 字体
+    return 0x1F000 <= cp <= 0x1FAFF or 0x2600 <= cp <= 0x27BF or cp in (0xFE0F, 0x200D, 0xFE0E)
 
 
 def download(url: str, dest: str, retries: int = 3) -> None:
