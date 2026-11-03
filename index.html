@@ -772,7 +772,10 @@
       if (to && !anchor.contains(to) && o.pop.classList.contains('open')) closePops();
     });
   });
-  document.addEventListener('click', e => { if (!e.target.closest('.popover') && !e.target.closest('.icon-btn')) closePops(); });
+  // 面板与其触发按钮的点击都已在各自处理器中 stopPropagation，能冒泡到这里的
+  // 一定是面板之外的点击（含主题按钮），统一收起；不能按 .icon-btn 排除，
+  // 否则点主题按钮后面板会一直悬着
+  document.addEventListener('click', () => closePops());
 
   const menuItems = { help: [ICON.help, '玩法说明'], best: [ICON.trophy, '最佳成绩'], clear: [ICON.trash, '清除记录'] };
   document.querySelectorAll('.menu-item').forEach(b => {
