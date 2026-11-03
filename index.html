@@ -429,6 +429,8 @@
   @media (prefers-reduced-motion: reduce) {
     .loader-ring { animation-duration: 2.6s !important; }
     .loader-ring .arc { animation-duration: 2.6s !important; }
+    /* 提示脉冲是无限循环，压到 .01ms 会变成逐帧抖动；改为静态描边 */
+    .cell.hint .tile { animation: none; box-shadow: 0 0 0 max(2.5px, calc(100cqw / var(--cols) * .055)) var(--tertiary), var(--shadow); }
   }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
