@@ -121,6 +121,8 @@
      导致配色与菜单面板看得见却点不到 */
   .appbar { position: sticky; top: 0; z-index: 30; background: color-mix(in oklch, var(--surface-lowest) 88%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); contain: layout style; }
   .bar-inner { position: relative; max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px clamp(16px, 4vw, 32px); }
+  /* viewport-fit=cover 下横屏刘海机需避让左右安全区 */
+  .bar-inner { padding-left: max(clamp(16px, 4vw, 32px), env(safe-area-inset-left)); padding-right: max(clamp(16px, 4vw, 32px), env(safe-area-inset-right)); }
   .logo { width: 48px; height: 48px; border-radius: 16px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; flex: none; box-shadow: var(--shadow); }
   .logo svg { width: 28px; height: 28px; }
   .brand { font-size: clamp(20px, 5vw, 26px); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
@@ -166,6 +168,7 @@
 
   /* ============ 页面自适应布局 ============ */
   main { max-width: 1200px; margin: 0 auto; padding: clamp(12px, 2.2vh, 18px) clamp(16px, 4vw, 32px) calc(32px + env(safe-area-inset-bottom)); }
+  main { padding-left: max(clamp(16px, 4vw, 32px), env(safe-area-inset-left)); padding-right: max(clamp(16px, 4vw, 32px), env(safe-area-inset-right)); }
   .layout { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(14px, 2.2vh, 20px); }
   .side { display: contents; }
   .title-row { order: 1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
