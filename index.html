@@ -680,7 +680,9 @@
   const sysMedia = matchMedia('(prefers-color-scheme: dark)');
   function syncThemeColor() {
     const m = document.querySelector('meta[name=theme-color]');
-    if (m) requestAnimationFrame(() => { m.content = getComputedStyle(document.body).backgroundColor || '#fff'; });
+    // 不能读 body 的 backgroundColor：它带 .3s 过渡，切换瞬间读到的仍是旧主题色。
+    // --surface 是自定义属性，无过渡，直接给出目标色
+    if (m) requestAnimationFrame(() => { m.content = getComputedStyle(root).getPropertyValue('--surface').trim() || '#fff'; });
   }
   function applyTheme(t, persist = false) {
     root.dataset.theme = t;
