@@ -639,25 +639,29 @@
   ];
 
   /* 本地存储（无权限沙盒环境自动降级至内存存储）。
-     内存值优先，null 作为删除墓碑：存储可读但写入/删除失败时，也不能回读旧值。 */
-  const mem = new Map();
+     mem 记录最近一次写入（null 为删除墓碑）；仅当 localStorage 写入/删除失败时
+     才以 mem 为准，避免旧值复活。其余情况始终读 localStorage，
+     这样多个标签页共用同一份存储时，不会拿本页的旧缓存覆盖他页刚写入的成绩。 */
+  const mem = new Map(), unsynced = new Set();
   const store = {
     get(k, d) {
+      if (!unsynced.has(k)) {
+        try { const v = localStorage.getItem(k); return v !== null ? v : d; } catch (e) {}
+      }
       if (mem.has(k)) {
         const v = mem.get(k);
         return v === null ? d : v;
       }
-      try { const v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {}
       return d;
     },
     set(k, v) {
       const s = String(v);
       mem.set(k, s);
-      try { localStorage.setItem(k, s); } catch (e) {}
+      try { localStorage.setItem(k, s); unsynced.delete(k); } catch (e) { unsynced.add(k); }
     },
     del(k) {
       mem.set(k, null);
-      try { localStorage.removeItem(k); } catch (e) {}
+      try { localStorage.removeItem(k); unsynced.delete(k); } catch (e) { unsynced.add(k); }
     }
   };
   const shuffleArr = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
