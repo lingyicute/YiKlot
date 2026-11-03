@@ -1590,6 +1590,9 @@
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (anyPopOpen()) return;
     const dirs = { ArrowUp: [-1, 0], w: [-1, 0], ArrowDown: [1, 0], s: [1, 0], ArrowLeft: [0, -1], a: [0, -1], ArrowRight: [0, 1], d: [0, 1] };
+    // 长按只对方向键与撤销有意义；其余动作若跟随自动重复，会连环执行提示、
+    // 反复重开或来回切换标位
+    if (e.repeat && !dirs[k] && k !== 'z') return;
     if (dirs[k]) { e.preventDefault(); slideDir(...dirs[k]); return; }
     if (k === ' ' || k === 'Enter' || k === 'spacebar') {
       if (e.target.closest && e.target.closest('button, a')) return;
