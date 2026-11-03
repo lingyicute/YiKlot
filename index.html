@@ -1321,7 +1321,8 @@
   const MAX_TICK_MS = 1000;
   function tickTimer() {
     const now = performance.now();
-    if (started && !over && timerVisible) {
+    // 玩法说明/最佳成绩/清除确认等模态框打开时棋盘不可操作，不应继续计入用时
+    if (started && !over && timerVisible && !dlg.open) {
       elapsed += Math.min(now - lastTick, MAX_TICK_MS) / 1000;
       const tt = fmt(elapsed);
       // 与 updateHud 同步缓存，避免重开后残留上一局时间；同秒心跳不重复写 DOM
