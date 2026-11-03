@@ -1596,7 +1596,7 @@
     // 对话框与弹窗优先级最高，避免底层快捷键误触
     if (e.key === 'Escape' && anyPopOpen()) { e.preventDefault(); closePops(null, true); return; }
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && k === 'z') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && k === 'z') {
       if (dlg.open || anyPopOpen()) return;
       e.preventDefault(); undo(); return;
     }
