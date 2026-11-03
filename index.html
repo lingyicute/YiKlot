@@ -1595,8 +1595,12 @@
     if (e.key === 'Tab') root.classList.add('kb');
     // 对话框与弹窗优先级最高，避免底层快捷键误触
     if (e.key === 'Escape' && anyPopOpen()) { e.preventDefault(); closePops(null, true); return; }
-    if (dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && k === 'z') {
+      if (dlg.open || anyPopOpen()) return;
+      e.preventDefault(); undo(); return;
+    }
+    if (dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
     if (anyPopOpen()) return;
     const dirs = { ArrowUp: [-1, 0], w: [-1, 0], ArrowDown: [1, 0], s: [1, 0], ArrowLeft: [0, -1], a: [0, -1], ArrowRight: [0, 1], d: [0, 1] };
     // 长按只对方向键与撤销有意义；其余动作若跟随自动重复，会连环执行提示、
@@ -1608,7 +1612,7 @@
       e.preventDefault();
       if (hintCell) slideFrom(hintCell[0], hintCell[1], true);
     } else if (k === 'h') { e.preventDefault(); showHint(); }
-    else if (k === 'z' || (k === 'y' && e.shiftKey)) { e.preventDefault(); undo(); }
+    else if (k === 'z') { e.preventDefault(); undo(); }
     else if (k === 'x') { e.preventDefault(); toggleMark(); }
     else if (k === 'r') { e.preventDefault(); newGame(); }
   });
