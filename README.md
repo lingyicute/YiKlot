@@ -56,7 +56,7 @@
 
 - **🔒 100% Privacy, Offline & Ad-Free**
   - **Zero network requests** — markup, styles, solver, and subsetted `Nebulove` + `Yomi-UI-Emoji` fonts are embedded into `index.html`.
-  - Records (`yk-best`), preferences (`yk-theme`, `yk-palette`, `yk-diff`), and progress (`yk-state`) stay strictly local.
+  - Records (`yk-best`), preferences (`yk-theme`, `yk-palette`, `yk-diff`, `yk-mark`, `yk-seen-help`), and progress (`yk-state`) stay strictly local.
   - Licensed under **AGPL-3.0**.
 
 <br>
