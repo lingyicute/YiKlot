@@ -434,6 +434,80 @@
   }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+  /* ============ 旧版 Chrome（< 111）回退 ============
+     不认识 oklch() / color-mix() 时，上面所有颜色令牌都会失效（页面无底色、文字与按钮不可见）。
+     这里改用 hsl() 近似值：--fh / --ft 为与各配色对应的 hsl 色相（主色 / 三级色） */
+  @supports not (color: oklch(.5 .1 100)) {
+    :root, [data-palette="purple"], .swatch[data-p="purple"] { --fh: 256; --ft: 345; }
+    [data-palette="blue"], .swatch[data-p="blue"] { --fh: 213; --ft: 297; }
+    [data-palette="cyan"], .swatch[data-p="cyan"] { --fh: 183; --ft: 226; }
+    [data-palette="green"], .swatch[data-p="green"] { --fh: 136; --ft: 191; }
+    [data-palette="yellow"], .swatch[data-p="yellow"] { --fh: 47; --ft: 154; }
+    [data-palette="orange"], .swatch[data-p="orange"] { --fh: 26; --ft: 79; }
+    [data-palette="pink"], .swatch[data-p="pink"] { --fh: 330; --ft: 29; }
+    [data-palette="red"], .swatch[data-p="red"] { --fh: 4; --ft: 49; }
+    [data-theme="light"] {
+      --primary: hsl(var(--fh), 51%, 45%);
+      --on-primary: hsl(var(--fh), 100%, 99%);
+      --primary-container: hsl(var(--fh), 100%, 92%);
+      --on-primary-container: hsl(var(--fh), 100%, 19%);
+      --secondary-container: hsl(var(--fh), 39%, 90%);
+      --on-secondary-container: hsl(var(--fh), 24%, 18%);
+      --tertiary: hsl(var(--ft), 48%, 43%);
+      --tertiary-container: hsl(var(--ft), 100%, 90%);
+      --on-tertiary-container: hsl(var(--ft), 77%, 15%);
+      --surface: hsl(var(--fh), 38%, 98%);
+      --surface-lowest: hsl(var(--fh), 44%, 99%);
+      --surface-low: hsl(var(--fh), 30%, 95%);
+      --surface-mid: hsl(var(--fh), 29%, 93%);
+      --surface-high: hsl(var(--fh), 26%, 89%);
+      --surface-highest: hsl(var(--fh), 24%, 86%);
+      --tile: hsl(var(--fh), 93%, 99%);
+      --slot: hsl(var(--fh), 15%, 79%);
+      --on-surface: hsl(var(--fh), 20%, 10%);
+      --on-surface-variant: hsl(var(--fh), 11%, 33%);
+      --outline: hsl(var(--fh), 8%, 47%);
+      --outline-variant: hsl(var(--fh), 18%, 77%);
+      --tile-ok: hsl(var(--fh), 100%, 95%);
+      --slot-ink: hsla(var(--fh), 11%, 33%, 0.72);
+      --shadow: 0 1px 2px hsla(var(--fh), 28%, 10%, 0.16), 0 2px 6px hsla(var(--fh), 28%, 10%, 0.08);
+      --glow: hsla(var(--fh), 94%, 88%, 0.55);
+    }
+    [data-theme="dark"] {
+      --primary: hsl(var(--fh), 100%, 84%);
+      --on-primary: hsl(var(--fh), 57%, 23%);
+      --primary-container: hsl(var(--fh), 38%, 33%);
+      --on-primary-container: hsl(var(--fh), 100%, 94%);
+      --secondary-container: hsl(var(--fh), 15%, 27%);
+      --on-secondary-container: hsl(var(--fh), 34%, 92%);
+      --tertiary: hsl(var(--ft), 100%, 83%);
+      --tertiary-container: hsl(var(--ft), 35%, 31%);
+      --on-tertiary-container: hsl(var(--ft), 100%, 92%);
+      --surface: hsl(var(--fh), 17%, 7%);
+      --surface-lowest: hsl(var(--fh), 23%, 3%);
+      --surface-low: hsl(var(--fh), 15%, 10%);
+      --surface-mid: hsl(var(--fh), 15%, 13%);
+      --surface-high: hsl(var(--fh), 13%, 16%);
+      --surface-highest: hsl(var(--fh), 12%, 21%);
+      --tile: hsl(var(--fh), 11%, 25%);
+      --tile-ok: hsl(var(--fh), 32%, 37%);
+      --slot: hsl(var(--fh), 15%, 12%);
+      --on-surface: hsl(var(--fh), 18%, 92%);
+      --on-surface-variant: hsl(var(--fh), 15%, 77%);
+      --outline: hsl(var(--fh), 9%, 55%);
+      --outline-variant: hsl(var(--fh), 11%, 30%);
+      --slot-ink: hsla(var(--fh), 15%, 77%, 0.56);
+      --glow: hsla(var(--fh), 36%, 33%, 0.55);
+    }
+    .appbar { background: var(--surface-lowest); }
+    .icon-btn:hover, .menu-item:hover, .chip-btn:hover { background: hsla(var(--fh), 10%, 50%, .12); }
+    .round.tonal:hover, .tool:hover { box-shadow: inset 0 0 0 999px hsla(var(--fh), 10%, 50%, .12); }
+    .round.filled:hover { box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }
+    .btn.text:hover { background: hsla(var(--fh), 50%, 50%, .1); }
+    .swatch { color: hsl(var(--fh), 60%, 12%); background: hsl(var(--fh), 75%, 70%); }
+    dialog::backdrop { background: rgba(10, 5, 15, .45); }
+  }
 </style>
 <style>
 /* INLINE_FONTS */
