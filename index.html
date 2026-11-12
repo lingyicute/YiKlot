@@ -627,7 +627,7 @@
       </div>
       <div class="anchor">
         <button class="icon-btn" id="menuBtn" aria-label="菜单" aria-haspopup="menu" aria-controls="menuPop" aria-expanded="false" title="菜单"></button>
-        <div class="popover" id="menuPop" role="menu">
+        <div class="popover" id="menuPop" role="menu" aria-label="菜单">
           <button class="menu-item" data-act="help" role="menuitem"></button>
           <button class="menu-item" data-act="best" role="menuitem"></button>
           <button class="menu-item" data-act="clear" role="menuitem"></button>
@@ -815,26 +815,35 @@
   }
   const popItems = pop => [...pop.querySelectorAll('.menu-item, .swatch')];
   pops.forEach(o => {
+    const anchor = o.btn.parentElement;
     o.btn.addEventListener('click', e => {
       e.stopPropagation();
       const open = !o.pop.classList.contains('open');
       closePops(o);
       o.pop.classList.toggle('open', open);
       o.btn.setAttribute('aria-expanded', String(open));
-      // 键盘打开的菜单把焦点移进面板，鼠标点开则保持原位，避免抢走指针交互
-      if (open && root.classList.contains('kb')) {
-        const first = popItems(o.pop)[0];
-        if (first) first.focus({ preventScroll: true });
+      // 键盘激活（detail===0）或键盘导航态下把焦点移进面板，鼠标点开则保持原位
+      if (open && (e.detail === 0 || root.classList.contains('kb'))) {
+        const target = o.pop.querySelector('.swatch.on') || popItems(o.pop)[0];
+        if (target) target.focus({ preventScroll: true });
       }
     });
-    // 菜单语义需要方向键在条目间移动；配色面板同样受益
-    o.pop.addEventListener('keydown', e => {
+    // 菜单与 4×2 配色网格的方向键导航；焦点仍在按钮上时按方向键也可直接进入面板
+    anchor.addEventListener('keydown', e => {
+      if (!o.pop.classList.contains('open')) return;
       const items = popItems(o.pop);
+      if (!items.length) return;
       const i = items.indexOf(document.activeElement);
-      if (i < 0) return;
+      const isGrid = o.pop.id === 'palettePop';
+      const stepV = isGrid ? 4 : 1;
       let next = -1;
-      if (e.key === 'ArrowDown') next = (i + 1) % items.length;
-      else if (e.key === 'ArrowUp') next = (i - 1 + items.length) % items.length;
+      if (i < 0) {
+        if (e.key === 'ArrowDown' || (isGrid && e.key === 'ArrowRight') || e.key === 'Home') next = 0;
+        else if (e.key === 'ArrowUp' || (isGrid && e.key === 'ArrowLeft') || e.key === 'End') next = items.length - 1;
+      } else if (e.key === 'ArrowDown') next = (i + stepV) % items.length;
+      else if (e.key === 'ArrowUp') next = (i - stepV + items.length) % items.length;
+      else if (isGrid && e.key === 'ArrowRight') next = (i + 1) % items.length;
+      else if (isGrid && e.key === 'ArrowLeft') next = (i - 1 + items.length) % items.length;
       else if (e.key === 'Home') next = 0;
       else if (e.key === 'End') next = items.length - 1;
       if (next >= 0) { e.preventDefault(); e.stopPropagation(); items[next].focus(); }
@@ -842,11 +851,16 @@
     // Enter/Space 也可触发，复用 click
     o.pop.addEventListener('click', e => e.stopPropagation());
     // Tab 把焦点移出锚点后收起面板，避免键盘导航后面板悬留遮挡内容；
-    // relatedTarget 为空（鼠标点非聚焦区）时不处理，交由全局 click 关闭
-    const anchor = o.btn.parentElement;
+    // relatedTarget 为空（鼠标点非聚焦区）时不处理，交由全局 pointerdown/click 关闭
     anchor.addEventListener('focusout', e => {
       const to = e.relatedTarget;
       if (to && !anchor.contains(to) && o.pop.classList.contains('open')) closePops();
+    });
+  });
+  // Safari 鼠标点按钮默认不聚焦锚点，补监听 focusin 确保此后按 Tab 切焦仍能收起面板
+  document.addEventListener('focusin', e => {
+    pops.forEach(o => {
+      if (o.pop.classList.contains('open') && !o.btn.parentElement.contains(e.target)) closePops();
     });
   });
   // 面板与其触发按钮的点击都已在各自处理器中 stopPropagation，能冒泡到这里的
@@ -1676,7 +1690,11 @@
   restartBtn.innerHTML = ICON.restart;
   buildTools();
 
-  document.addEventListener('pointerdown', () => root.classList.remove('kb'), true);
+  document.addEventListener('pointerdown', e => {
+    root.classList.remove('kb');
+    const el = e.target instanceof Element ? e.target : e.target && e.target.parentElement;
+    if (anyPopOpen() && !(el && el.closest('.anchor'))) closePops();
+  }, true);
   document.addEventListener('keydown', e => {
     if (e.key === 'Tab') root.classList.add('kb');
     // 对话框与弹窗优先级最高，避免底层快捷键误触
