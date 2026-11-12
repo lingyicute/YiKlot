@@ -436,10 +436,10 @@
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; transition-delay: 0s !important; } }
 
-  /* ============ 旧版 Chrome（< 111）回退 ============
-     不认识 oklch() / color-mix() 时，上面所有颜色令牌都会失效（页面无底色、文字与按钮不可见）。
+  /* ============ 旧版浏览器（Chrome < 111 / Safari < 16.2）回退 ============
+     不认识 oklch() 或 color-mix() 时，上面颜色令牌或混合色会失效。
      这里改用 hsl() 近似值：--fh / --ft 为与各配色对应的 hsl 色相（主色 / 三级色） */
-  @supports not (color: oklch(.5 .1 100)) {
+  @supports not ((color: oklch(.5 .1 100)) and (color: color-mix(in oklch, #000, #fff))) {
     :root, [data-palette="purple"], .swatch[data-p="purple"] { --fh: 256; --ft: 345; }
     [data-palette="blue"], .swatch[data-p="blue"] { --fh: 213; --ft: 297; }
     [data-palette="cyan"], .swatch[data-p="cyan"] { --fh: 183; --ft: 226; }
