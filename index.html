@@ -1307,12 +1307,16 @@
   }
 
   let entranceTimer = null, winTimer = null;
+  function stopEntrance() {
+    if (entranceTimer) { clearTimeout(entranceTimer); entranceTimer = null; }
+    gridEl.classList.remove('shuffling');
+  }
   function playEntrance() {
-    clearTimeout(entranceTimer);
-    gridEl.classList.remove('winning', 'shuffling');
+    stopEntrance();
+    gridEl.classList.remove('winning');
     void gridEl.offsetWidth;
     gridEl.classList.add('shuffling');
-    entranceTimer = setTimeout(() => gridEl.classList.remove('shuffling'), 600);
+    entranceTimer = setTimeout(() => { entranceTimer = null; gridEl.classList.remove('shuffling'); }, 600);
   }
 
   function newGame() {
@@ -1469,6 +1473,7 @@
     const [br, bc] = blank;
     if ((r === br && c === bc) || (r !== br && c !== bc)) return false;
 
+    stopEntrance();
     clearHint();
     if (!started) { started = true; lastTick = performance.now(); }
 
@@ -1523,6 +1528,7 @@
 
   function undo() {
     if (over || !history.length) return;
+    stopEntrance();
     clearHint();
     const { prevBlank, count } = history.pop();
     const [pr, pc] = prevBlank;
