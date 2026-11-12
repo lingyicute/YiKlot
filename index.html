@@ -898,7 +898,7 @@
     const ms = REDUCED.matches ? 0 : OUT_MS;
     const done = () => {
       resetClose();
-      if (dlg.open) dlg.close();
+      if (dlg.open) { dlg.close(); lastTick = performance.now(); }
       const f = dlgAfter; dlgAfter = null; f && f();
     };
     dlgOnEnd = e => { if (e.target === dlg && e.animationName === 'dlgOut') done(); };
@@ -914,6 +914,7 @@
 
   function showDialog({ icon, title, body, actions }) {
     resetClose(); dlgAfter = null;
+    closePops();
     $('#dlgIcon').innerHTML = icon;
     $('#dlgTitle').textContent = title;
     $('#dlgBody').innerHTML = body;
@@ -925,10 +926,14 @@
       box.append(b);
     });
     if (!dlg.open) {
+      tickTimer();
       dlg.showModal();
     } else {
       dlg.style.animation = 'none'; void dlg.offsetWidth; dlg.style.animation = '';
+      const firstBtn = box.querySelector('button');
+      if (firstBtn) firstBtn.focus({ preventScroll: true });
     }
+    dlg.scrollTop = 0;
   }
   // 遮罩是 dialog 的伪元素，点击遮罩时 e.target 同样是 dialog，
   // 因此还要用坐标排除落在面板内边距上的点击，避免误关闭
@@ -1416,8 +1421,8 @@
   const MAX_TICK_MS = 1000;
   function tickTimer() {
     const now = performance.now();
-    // 玩法说明/最佳成绩/清除确认等模态框打开时棋盘不可操作，不应继续计入用时
-    if (started && !over && timerVisible && !dlg.open) {
+    // 模态框与首屏加载遮罩期间棋盘不可操作，不应计入用时
+    if (started && !over && timerVisible && !dlg.open && !root.classList.contains('is-loading')) {
       elapsed += Math.min(now - lastTick, MAX_TICK_MS) / 1000;
       const tt = fmt(elapsed);
       // 与 updateHud 同步缓存，避免重开后残留上一局时间；同秒心跳不重复写 DOM
@@ -1452,10 +1457,12 @@
     updateHud();
   }
 
+  const shakeTimers = new WeakMap();
   function shakeCell(r, c) {
     const el = cellAt(r, c);
+    clearTimeout(shakeTimers.get(el));
     el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-    setTimeout(() => el.classList.remove('shake'), 360);
+    shakeTimers.set(el, setTimeout(() => { el.classList.remove('shake'); shakeTimers.delete(el); }, 360));
   }
 
   // 快速连续移动时，上一轮清理定时器不能把新一轮 transition 提前清掉
@@ -1645,6 +1652,7 @@
       id: e.pointerId,
       x: e.clientX,
       y: e.clientY,
+      cell,
       r: cell ? +cell.dataset.r : -1,
       c: cell ? +cell.dataset.c : -1,
       moved: false
@@ -1653,6 +1661,7 @@
   });
   gridEl.addEventListener('pointermove', e => {
     if (!ptr || e.pointerId !== ptr.id || ptr.moved || over) return;
+    if (ptr.cell && !ptr.cell.isConnected) { ptr = null; return; }
     const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
     const thresh = Math.max(18, (gridEl.clientWidth / size) * 0.28);
     if (Math.hypot(dx, dy) < thresh) return;
@@ -1671,7 +1680,7 @@
     if (!ptr || e.pointerId !== ptr.id) return;
     const p = ptr; ptr = null;
     try { gridEl.releasePointerCapture(e.pointerId); } catch (_) {}
-    if (!p.moved && p.r >= 0) tapCell(p.r, p.c);
+    if (!p.moved && p.r >= 0 && (!p.cell || p.cell.isConnected)) tapCell(p.r, p.c);
   });
   gridEl.addEventListener('pointercancel', e => {
     if (!ptr || e.pointerId !== ptr.id) return;
@@ -1697,6 +1706,7 @@
   }, true);
   document.addEventListener('keydown', e => {
     if (e.key === 'Tab') root.classList.add('kb');
+    if (root.classList.contains('is-loading') || e.isComposing || e.keyCode === 229) return;
     // 对话框与弹窗优先级最高，避免底层快捷键误触
     if (e.key === 'Escape' && anyPopOpen()) { e.preventDefault(); closePops(null, true); return; }
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -1726,9 +1736,10 @@
   applyPalette(root.dataset.palette || 'purple');
   renderDiffs();
   initGame();
+  if (window.YKReady) window.YKReady.whenReady(() => { lastTick = performance.now(); });
   if (!store.get('yk-seen-help', '')) {
     store.set('yk-seen-help', '1');
-    const firstHelp = () => setTimeout(showHelp, 400);
+    const firstHelp = () => setTimeout(() => { if (!dlg.open && !started) showHelp(); }, 400);
     if (window.YKReady) window.YKReady.whenReady(firstHelp); else firstHelp();
   }
 })();
