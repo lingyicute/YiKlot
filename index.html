@@ -431,9 +431,10 @@
     .loader-ring .arc { animation-duration: 2.6s !important; }
     /* 提示脉冲是无限循环，压到 .01ms 会变成逐帧抖动；改为静态描边 */
     .cell.hint .tile { animation: none; box-shadow: 0 0 0 max(2.5px, calc(100cqw / var(--cols) * .055)) var(--tertiary), var(--shadow); }
+    .grid.shuffling .cell:not(.empty) .tile, .grid.winning .cell:not(.empty) .tile { animation: none; }
   }
 
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; transition-delay: 0s !important; } }
 
   /* ============ 旧版 Chrome（< 111）回退 ============
      不认识 oklch() / color-mix() 时，上面所有颜色令牌都会失效（页面无底色、文字与按钮不可见）。
