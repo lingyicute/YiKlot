@@ -1259,28 +1259,41 @@
   }
 
   /* 渲染 */
+  function isSolvedGrid() {
+    if (blank[0] !== size - 1 || blank[1] !== size - 1) return false;
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const want = r === size - 1 && c === size - 1 ? 0 : r * size + c + 1;
+        if (grid[r][c] !== want) return false;
+      }
+    }
+    return true;
+  }
   function paint(r, c) {
     const el = cellAt(r, c), v = grid[r][c];
     const isMovable = !over && v !== 0 && (r === blank[0] || c === blank[1]);
-    el.classList.remove('shake');
-    el.classList.toggle('empty', v === 0);
     el.classList.toggle('movable', isMovable);
-    el.classList.toggle('ok', v !== 0 && v === r * size + c + 1);
     el.classList.toggle('hint', !!hintCell && hintCell[0] === r && hintCell[1] === c);
-    if (el.firstChild.textContent !== String(v > 0 ? v : '')) el.firstChild.textContent = v > 0 ? v : '';
-    const label = `第 ${r + 1} 行第 ${c + 1} 列，` + (v > 0 ? '数字 ' + v : '空白格');
-    if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
+    if (el._v !== v) {
+      el._v = v;
+      el.classList.remove('shake');
+      el.classList.toggle('empty', v === 0);
+      el.classList.toggle('ok', v !== 0 && v === r * size + c + 1);
+      el.firstChild.textContent = v > 0 ? v : '';
+      el.setAttribute('aria-label', `第 ${r + 1} 行第 ${c + 1} 列，` + (v > 0 ? '数字 ' + v : '空白格'));
+    }
   }
   function paintAll() {
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) paint(r, c);
   }
-  // 按钮结构只构建一次，之后仅更新 chip 文本，避免每步重建 DOM 导致闪烁与无谓重排
+  // 按钮结构只构建一次，之后仅更新缓存的 chip 节点文本，避免每步重建 DOM 或重复查询
+  let hintChipEl = null, markChipEl = null;
   function buildTools() {
     hintBtn.innerHTML = ICON.bulb + '<span>提示</span><span class="chip"></span>';
     markBtn.innerHTML = ICON.target + '<span>标位</span><span class="chip"></span>';
+    hintChipEl = hintBtn.querySelector('.chip');
+    markChipEl = markBtn.querySelector('.chip');
   }
-  const hintChip = () => hintBtn.querySelector('.chip');
-  const markChip = () => markBtn.querySelector('.chip');
   const hudCache = { time: '', steps: -1, sub: '', hint: '', mark: '' };
   function updateHud() {
     const tt = fmt(elapsed);
@@ -1295,9 +1308,9 @@
     gridEl.classList.toggle('mark', showMark);
     markBtn.classList.toggle('active', showMark);
     const ht = String(hintsLeft), mt = showMark ? '开' : '关';
-    if (hudCache.hint !== ht) { const c = hintChip(); if (c) c.textContent = ht; hudCache.hint = ht; }
+    if (hudCache.hint !== ht) { if (hintChipEl) hintChipEl.textContent = ht; hudCache.hint = ht; }
     if (hudCache.mark !== mt) {
-      const c = markChip(); if (c) c.textContent = mt;
+      if (markChipEl) markChipEl.textContent = mt;
       markBtn.setAttribute('aria-pressed', String(showMark));
       hudCache.mark = mt;
     }
@@ -1311,7 +1324,7 @@
     cells = [];
     for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
       const b = document.createElement('button');
-      b.className = 'cell'; b.type = 'button'; b.tabIndex = -1;
+      b.className = 'cell'; b.type = 'button'; b.tabIndex = -1; b._v = -1;
       b.dataset.r = r; b.dataset.c = c;
       const goal = r === size - 1 && c === size - 1 ? '' : String(r * size + c + 1);
       b.dataset.goal = goal;
@@ -1523,7 +1536,7 @@
     animateMoves(moved);
     updateHud();
 
-    if (isSolvedFlat(toFlat())) {
+    if (isSolvedGrid()) {
       // over 置位前结清最后一次心跳，并立即保存成绩；不能让动画延时成为数据丢失窗口
       tickTimer();
       over = true;
