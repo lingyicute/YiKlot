@@ -9,19 +9,20 @@
 <meta name="description" content="YiKlot 数字华容道：支持多格连推、提示与撤销的离线单文件解谜游戏，含 3×3 至 6×6 四档难度。">
 <title>YiKlot Web · 数字华容道</title>
 <script>
-  // 先于渲染应用主题，避免闪烁
+  // 先于渲染应用主题，避免闪烁；localStorage 无权限时仍保留系统深浅色检测
   (function () {
+    var t = '', p = '';
     try {
-      var t = localStorage.getItem('yk-theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-      document.documentElement.dataset.theme = t;
-      var p = localStorage.getItem('yk-palette');
-      if (/^(purple|blue|cyan|green|yellow|orange|pink|red)$/.test(p || '')) {
-        document.documentElement.dataset.palette = p;
-      }
+      t = localStorage.getItem('yk-theme') || '';
+      p = localStorage.getItem('yk-palette') || '';
     } catch (e) {}
+    if (t !== 'light' && t !== 'dark') {
+      t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = t;
+    if (/^(purple|blue|cyan|green|yellow|orange|pink|red)$/.test(p)) {
+      document.documentElement.dataset.palette = p;
+    }
   })();
 </script>
 <style>
