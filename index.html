@@ -1413,18 +1413,22 @@
   }
   setInterval(tickTimer, 250);
   document.addEventListener('visibilitychange', () => {
-    tickTimer();
-    timerVisible = !document.hidden;
-    lastTick = performance.now();
-    saveGame();
+    if (document.hidden) {
+      if (timerVisible) { tickTimer(); timerVisible = false; saveGame(); }
+    } else {
+      timerVisible = true;
+      lastTick = performance.now();
+    }
   });
   window.addEventListener('pagehide', () => {
-    tickTimer(); timerVisible = false; saveGame();
+    if (timerVisible) { tickTimer(); timerVisible = false; saveGame(); }
   });
   window.addEventListener('pageshow', () => {
     timerVisible = !document.hidden; lastTick = performance.now();
   });
-  window.addEventListener('beforeunload', () => { tickTimer(); saveGame(); });
+  window.addEventListener('beforeunload', () => {
+    if (timerVisible) { tickTimer(); saveGame(); }
+  });
 
   /* ---------- 滑动与 FLIP 位移动画 ---------- */
   function clearHint() {
