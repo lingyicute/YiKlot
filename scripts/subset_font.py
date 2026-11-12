@@ -12,6 +12,7 @@ Nebulove & Yomi-UI-Emoji 字体子集化与内嵌脚本
 import argparse
 import base64
 import hashlib
+import html as html_lib
 import io
 import os
 import re
@@ -34,18 +35,23 @@ DEFAULT_HTML = HERE.parent / "index.html"
 ASCII = {chr(c) for c in range(32, 127)}
 PUNCT = set("：，。！？；“”‘’（）【】—…·《》×＝÷＋－←↑→↓「」")
 BLOCK_RE = re.compile(r"<style>\s*(?:/\*\s*INLINE_FONTS\s*\*/\s*)?@font-face.*?</style>", re.S)
+JS_TOKEN_RE = re.compile(
+    r"""('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)|//[^\r\n]*|/\*.*?\*/""",
+    re.S,
+)
 
 
 def strip_non_render_text(html: str) -> str:
-    """剔除不会渲染的文字：HTML 注释、<style>、<script> 中的注释。"""
+    """剔除不会渲染的文字：HTML 注释、<meta>、<style>、<script> 中的注释，并还原字符实体。"""
     html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
     html = re.sub(r"<style\b[^>]*>.*?</style>", "", html, flags=re.S | re.I)
+    html = re.sub(r"<meta\b[^>]*>", "", html, flags=re.S | re.I)
 
     def _js(m: re.Match) -> str:
-        s = re.sub(r"/\*.*?\*/", " ", m.group(1), flags=re.S)
-        return re.sub(r"(?m)^[ \t]*//.*$", " ", s)
+        return JS_TOKEN_RE.sub(lambda tok: tok.group(1) or " ", m.group(1))
 
-    return re.sub(r"<script\b[^>]*>(.*?)</script>", _js, html, flags=re.S | re.I)
+    stripped = re.sub(r"<script\b[^>]*>(.*?)</script>", _js, html, flags=re.S | re.I)
+    return html_lib.unescape(stripped)
 
 
 def is_emoji(ch: str) -> bool:
@@ -111,6 +117,9 @@ def main() -> None:
 
     if not args.html.exists():
         sys.exit(f"找不到页面文件：{args.html}")
+    for label, p in (("Nebulove 字体", args.ttf), ("Emoji 字体", args.emoji_ttf), ("追加字符文件", args.extra_chars)):
+        if p and not Path(p).is_file():
+            sys.exit(f"找不到{label}：{p}")
     html = args.html.read_text(encoding="utf-8")
     if not BLOCK_RE.search(html):
         sys.exit(f"未在 {args.html} 中找到内联 @font-face 块")
@@ -125,12 +134,12 @@ def main() -> None:
     print(f"需要保留字符：Nebulove {len(neb_chars)} 个，Yomi-UI-Emoji {len(emoji_chars)} 个（{mode}）")
 
     with tempfile.TemporaryDirectory(prefix="yiklotski-font-") as tmp:
-        neb_src = args.ttf or os.path.join(tmp, os.path.basename(args.font_url))
+        neb_src = args.ttf or os.path.join(tmp, "nebulove.font")
         if not args.ttf:
             print(f"下载 Nebulove：{args.font_url}")
             download(args.font_url, neb_src)
 
-        emo_src = args.emoji_ttf or os.path.join(tmp, os.path.basename(args.emoji_url))
+        emo_src = args.emoji_ttf or os.path.join(tmp, "emoji.font")
         if not args.emoji_ttf:
             print(f"下载 Yomi-UI-Emoji：{args.emoji_url}")
             download(args.emoji_url, emo_src)
