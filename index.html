@@ -961,8 +961,8 @@
         if (!r || typeof r !== 'object') continue;
         const time = safeInt(r.time, Number.MAX_SAFE_INTEGER);
         const steps = safeInt(r.steps, MAX_SAVED_STEPS);
-        if (time !== null && steps !== null) {
-          out[d.id] = { time, steps, wins: safeInt(r.wins, MAX_SAVED_STEPS, 0) };
+        if (time !== null && steps !== null && steps >= 1) {
+          out[d.id] = { time, steps, wins: Math.max(1, safeInt(r.wins, MAX_SAVED_STEPS, 1)) };
         }
       }
       return out;
