@@ -361,9 +361,9 @@
 
   /* 对话框：backdrop 在低端机上可降级为纯色以减少重绘 */
   dialog { margin: auto; border: 0; padding: 28px 28px 22px; width: min(92vw, 420px); border-radius: 32px; background: var(--surface-high); color: var(--on-surface); box-shadow: 0 16px 48px #0006; max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain; }
-  dialog::backdrop { background: oklch(.1 .02 var(--h) / .45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  dialog::backdrop { background: oklch(.1 .02 var(--h, 295) / .45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   @supports not (backdrop-filter: blur(8px)) {
-    dialog::backdrop { background: oklch(.1 .02 var(--h) / .68); }
+    dialog::backdrop { background: oklch(.1 .02 var(--h, 295) / .68); }
   }
   dialog[open] { animation: dlgIn .28s cubic-bezier(.2,.9,.3,1.15); }
   dialog[open]::backdrop { animation: fadeIn .25s; }
