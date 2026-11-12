@@ -147,12 +147,12 @@
     position: absolute; top: calc(100% + 6px); z-index: 40;
     background: var(--surface-high); color: var(--on-surface);
     border-radius: 24px; padding: 14px; box-shadow: 0 8px 28px #0004;
-    opacity: 0; visibility: hidden; transform: scale(.88); transform-origin: top right;
+    opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.88); transform-origin: top right;
     /* visibility 用 0s + 延迟过渡：打开时立即可见（面板内的按钮要能被聚焦），
        关闭时等淡出结束再隐藏 */
     transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility 0s linear .22s;
   }
-  .popover.open { opacity: 1; visibility: visible; transform: none; transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility 0s; }
+  .popover.open { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: opacity .18s, transform .22s cubic-bezier(.2,.9,.3,1.2), visibility 0s; }
   #palettePop { right: -56px; width: min(280px, calc(100vw - 32px)); padding: 18px 18px 20px; }
   #menuPop { right: 0; width: min(230px, calc(100vw - 32px)); padding: 8px; }
   .pop-title { font-size: 14px; font-weight: 600; color: var(--on-surface-variant); letter-spacing: .08em; margin-bottom: 14px; }
